@@ -1,0 +1,185 @@
+basePath: /api
+definitions:
+  handlers.AuthResponse:
+    properties:
+      access_token:
+        type: string
+      message:
+        type: string
+      refresh_token:
+        type: string
+    type: object
+  handlers.LoginInput:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  handlers.UserProfileResponse:
+    properties:
+      email:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  sqlc.CreateUserParams:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      password:
+        type: string
+    type: object
+  utils.EnvelopResponse-handlers_AuthResponse:
+    properties:
+      data:
+        $ref: '#/definitions/handlers.AuthResponse'
+    type: object
+  utils.EnvelopResponse-handlers_UserProfileResponse:
+    properties:
+      data:
+        $ref: '#/definitions/handlers.UserProfileResponse'
+    type: object
+  utils.ErrResponse:
+    properties:
+      message:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: souravlayek11@gmail.com
+    name: API Support
+    url: https://souravlayek.com/contact-me
+  description: This is a server to manage Sealed resources.
+  termsOfService: http://swagger.io/terms/
+  title: Sealed Server API
+  version: "1.0"
+paths:
+  /v1/auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new user.
+      parameters:
+      - description: Registration details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/sqlc.CreateUserParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.EnvelopResponse-handlers_AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+      summary: Register user
+      tags:
+      - auth
+  /v1/auth/revalidate-token:
+    post:
+      consumes:
+      - application/json
+      description: Generates a new access token using a valid refresh token.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.EnvelopResponse-handlers_AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+      summary: Revalidate access token
+      tags:
+      - auth
+  /v1/auth/signin:
+    post:
+      consumes:
+      - application/json
+      description: Authenticates a user with email and password, returns an access
+        token.
+      parameters:
+      - description: Login credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.LoginInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.EnvelopResponse-handlers_AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+      summary: User login
+      tags:
+      - auth
+  /v1/auth/user:
+    get:
+      description: Returns the profile of the authenticated user.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.EnvelopResponse-handlers_UserProfileResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+      security:
+      - BearerAuth: []
+      summary: Get current user profile
+      tags:
+      - auth
+schemes:
+- http
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
