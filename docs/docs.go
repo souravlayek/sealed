@@ -68,6 +68,11 @@ const docTemplate = `{
         },
         "/v1/auth/revalidate-token": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Generates a new access token using a valid refresh token.",
                 "consumes": [
                     "application/json"
@@ -410,6 +415,70 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/projects/{id}/invite-member": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Invite a project member",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "projects"
+                ],
+                "summary": "Invite a new member",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Project ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Environemnt",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.InviteProjectMemberPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.EnvelopResponse-string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.ErrResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.ErrResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.ErrResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/projects/{id}/secret": {
             "post": {
                 "security": [
@@ -511,6 +580,14 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "secret": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.InviteProjectMemberPayload": {
+            "type": "object",
+            "properties": {
+                "email": {
                     "type": "string"
                 }
             }

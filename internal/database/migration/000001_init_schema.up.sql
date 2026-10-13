@@ -28,17 +28,7 @@ CREATE TABLE "project_members" (
   "project_id" bigint NOT NULL,
   "user_id" bigint NOT NULL,
   "role" varchar NOT NULL,
-  "deleted_at" timestamptz,
-
-  CONSTRAINT "project_members_project_fk"
-    FOREIGN KEY ("project_id")
-    REFERENCES "project" ("id")
-    DEFERRABLE INITIALLY IMMEDIATE,
-
-  CONSTRAINT "project_members_user_fk"
-    FOREIGN KEY ("user_id")
-    REFERENCES "user" ("id")
-    DEFERRABLE INITIALLY IMMEDIATE
+  "deleted_at" timestamptz
 );
 
 CREATE UNIQUE INDEX "project_members_active_unique"

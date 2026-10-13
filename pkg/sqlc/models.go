@@ -41,6 +41,12 @@ type Project struct {
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
+type ProjectInvite struct {
+	ID           int64  `json:"id"`
+	InvitedEmail string `json:"invited_email"`
+	ProjectID    int64  `json:"project_id"`
+}
+
 type ProjectKey struct {
 	ProjectID  int64              `json:"project_id"`
 	DekWrapped string             `json:"dek_wrapped"`

@@ -25,6 +25,11 @@ definitions:
       secret:
         type: string
     type: object
+  handlers.InviteProjectMemberPayload:
+    properties:
+      email:
+        type: string
+    type: object
   handlers.LoginInput:
     properties:
       email:
@@ -204,6 +209,8 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/utils.ErrResponse'
+      security:
+      - BearerAuth: []
       summary: Revalidate access token
       tags:
       - auth
@@ -403,6 +410,47 @@ paths:
       security:
       - BearerAuth: []
       summary: Add environment to project
+      tags:
+      - projects
+  /v1/projects/{id}/invite-member:
+    post:
+      consumes:
+      - application/json
+      description: Invite a project member
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Environemnt
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.InviteProjectMemberPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.EnvelopResponse-string'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+      security:
+      - BearerAuth: []
+      summary: Invite a new member
       tags:
       - projects
   /v1/projects/{id}/secret:

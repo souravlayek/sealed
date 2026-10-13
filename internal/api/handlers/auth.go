@@ -1,14 +1,13 @@
 package handlers
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
-	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/souravlayek/sealed-server/internal/database"
 	"github.com/souravlayek/sealed-server/internal/middleware"
 	"github.com/souravlayek/sealed-server/pkg/auth"
@@ -54,13 +53,32 @@ func RegisterUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userRequest.Password = hashedPassword
-	contextWithTimeout, cancel := context.WithTimeout(r.Context(), 30*time.Second)
-	defer cancel()
-	user, err := database.Q.CreateUser(contextWithTimeout, userRequest)
+	user, err := database.Q.CreateUser(r.Context(), userRequest)
 	if err != nil {
 		logger.Logger.Errorf("%v", err)
 		utils.SendErrorMessage(w, http.StatusBadRequest, "Unable to create user")
 		return
+	}
+	continueInviteWork := true
+	userInInvited, err := database.Q.GetProjectInviteByEmail(r.Context(), user.Email)
+	if err != nil && errors.Is(err, pgx.ErrNoRows) {
+		logger.Logger.Errorf("Unable to load invite %v", err)
+		continueInviteWork = false
+	}
+	if continueInviteWork {
+		_, err = database.Q.AddProjectMember(r.Context(), sqlc.AddProjectMemberParams{
+			ProjectID: userInInvited.ProjectID,
+			UserID:    user.ID,
+			Role:      ROLE_PROJECT_MEMBER,
+		})
+		if err != nil {
+			logger.Logger.Errorf("Failed to add project member %v", err)
+		}
+		// Delete from invite table
+		_, err = database.Q.DeleteProjectInviteByID(r.Context(), userInInvited.ID)
+		if err != nil {
+			logger.Logger.Errorf("Failed to delete member invite for id: %d -- %v", userInInvited.ID, err)
+		}
 	}
 
 	accessToken, err := auth.CreateAccessToken(user.ID, user.Email, user.Role)
@@ -276,6 +294,7 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 //	@Tags			auth
 //	@Accept			json
 //	@Produce		json
+//	@Security		BearerAuth
 //	@Success		200	{object}	utils.EnvelopResponse[handlers.AuthResponse]
 //	@Failure		400	{object}	utils.ErrResponse
 //	@Failure		401	{object}	utils.ErrResponse

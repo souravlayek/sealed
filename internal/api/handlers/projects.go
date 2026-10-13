@@ -2,24 +2,29 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/souravlayek/sealed-server/internal/database"
 	"github.com/souravlayek/sealed-server/internal/middleware"
 	"github.com/souravlayek/sealed-server/pkg/auth"
 	"github.com/souravlayek/sealed-server/pkg/encryption"
 	"github.com/souravlayek/sealed-server/pkg/logger"
+	"github.com/souravlayek/sealed-server/pkg/resend"
 	"github.com/souravlayek/sealed-server/pkg/sqlc"
 	"github.com/souravlayek/sealed-server/utils"
 )
 
 const (
 	ROLE_PROJECT_MEMBER = "PROJECT_MEMBER"
+	ROLE_PROJECT_ADMIN  = "PROJECT_ADMIN"
 )
 
 // @Summary		Create project
@@ -86,7 +91,7 @@ func CreateProject(w http.ResponseWriter, r *http.Request) {
 	_, err = qtx.AddProjectMember(r.Context(), sqlc.AddProjectMemberParams{
 		ProjectID: project.ID,
 		UserID:    claims.Id,
-		Role:      ROLE_PROJECT_MEMBER,
+		Role:      ROLE_PROJECT_ADMIN,
 	})
 	if err != nil {
 		logger.Logger.Errorf("%v", err)
@@ -375,4 +380,130 @@ func AddEnvironmentToProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	utils.SendResponse(w, "Successfully added environment", http.StatusOK)
+}
+
+type InviteProjectMemberPayload struct {
+	Email string `json:"email"`
+}
+
+// @Summary		Invite a new member
+// @Description	Invite a project member
+// @Tags			projects
+// @Accept			json
+// @Produce		json
+// @Security		BearerAuth
+// @Param			id		path		int									true	"Project ID"
+// @Param			request	body		handlers.InviteProjectMemberPayload	true	"Environemnt"
+// @Success		200		{object}	utils.EnvelopResponse[string]
+// @Failure		400		{object}	utils.ErrResponse
+// @Failure		404		{object}	utils.ErrResponse
+// @Failure		401		{object}	utils.ErrResponse
+// @Router			/v1/projects/{id}/invite-member [post]
+func InviteProjectMember(w http.ResponseWriter, r *http.Request) {
+	claims, ok := r.Context().Value(
+		middleware.UserClaimsKey,
+	).(*auth.Payload)
+
+	if !ok {
+		utils.SendErrorMessage(
+			w,
+			http.StatusUnauthorized,
+			"user authentication required",
+		)
+		return
+	}
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		utils.SendErrorMessage(
+			w,
+			http.StatusBadRequest,
+			"invalid project id",
+		)
+		return
+	}
+	var payload InviteProjectMemberPayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+	if strings.Trim(payload.Email, " ") == "" {
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+	project, err := database.Q.GetProjectByID(r.Context(), sqlc.GetProjectByIDParams{
+		UserID: claims.Id,
+		ID:     int64(id),
+	})
+	if err != nil {
+		utils.SendErrorMessage(w, http.StatusNotFound, "Unable to found project")
+		return
+	}
+	if project.MyRole != ROLE_PROJECT_ADMIN {
+		utils.SendErrorMessage(w, http.StatusBadRequest, "You don't have the permission.")
+		return
+	}
+	// If the user exist then add to Project and send invite email
+	user, err := database.Q.GetUserByEmail(r.Context(), payload.Email)
+	fmt.Println(err)
+	if errors.Is(err, pgx.ErrNoRows) {
+		logger.Logger.Infoln("User doesn't exist hance inviting the user")
+		// If the user doesn't exist add to in-transit db and invite user, if the user signups and signup check in transit db if the user is there then add to project
+		// TODO: WIP
+		signupUrl := os.Getenv("FE_SIGNUP_URL")
+		if signupUrl == "" {
+			logger.Logger.Error("FE_SIGNUP_URL is not presend in env")
+			utils.SendErrorMessage(w, http.StatusInternalServerError, "ENV not found")
+			return
+		}
+		to := []string{payload.Email}
+		subject := "You've been invited to join a project"
+		html := fmt.Sprintf(`
+		<!DOCTYPE html>
+		<html>
+  <body style="font-family: Arial, sans-serif; color: #111; line-height: 1.5;">
+    <h2>You're invited</h2>
+    <p>You've been invited to join <strong>%s</strong>.</p>
+    <p>Create your account to accept the invite:</p>
+    <p>
+      <a href="%s"
+         style="display:inline-block;padding:10px 18px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;">
+        Sign up
+      </a>
+    </p>
+    <p>If the button doesn't work, copy this link into your browser:<br>
+      <a href="%s">%s</a>
+    </p>
+    <p style="color:#666;font-size:12px;">If you weren't expecting this invite, you can ignore this email.</p>
+  </body>
+		</html>`, project.Name, signupUrl, signupUrl, signupUrl)
+
+		err := resend.SendEmailRequest(to, subject, html)
+		_, err = database.Q.CreateProjectInvite(r.Context(), sqlc.CreateProjectInviteParams{
+			InvitedEmail: payload.Email,
+			ProjectID:    project.ID,
+		})
+		if err != nil {
+			logger.Logger.Errorf("Failed to create project invite, %v", err)
+			utils.SendErrorMessage(w, http.StatusBadRequest, "Unable to invite")
+			return
+		}
+		utils.SendResponse(w, "Member invited successfully", http.StatusOK)
+		return
+	}
+	if err != nil {
+		logger.Logger.Errorf("Failed to find user, %v", err)
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Unable to invite")
+		return
+	}
+	_, err = database.Q.AddProjectMember(r.Context(), sqlc.AddProjectMemberParams{
+		ProjectID: project.ID,
+		UserID:    user.ID,
+		Role:      ROLE_PROJECT_MEMBER,
+	})
+	if err != nil {
+		logger.Logger.Errorf("Failed to Add member, %v", err)
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Unable to invite")
+		return
+	}
+	utils.SendResponse(w, "Member added successfully", http.StatusOK)
 }
