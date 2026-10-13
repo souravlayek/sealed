@@ -14,6 +14,7 @@ func CreateProjectsRoutes() *http.ServeMux {
 	router.HandleFunc("GET /{id}", handlers.GetProjectDetails)
 	router.HandleFunc("POST /{id}/invite-member", handlers.InviteProjectMember)
 	router.HandleFunc("POST /{id}/secret", handlers.CreateProjectSecret)
+	router.HandleFunc("DELETE /{id}/secret/{environment}/{secretKey}", handlers.DeleteProjectSecret)
 	router.HandleFunc("PUT /{id}/environment", handlers.AddEnvironmentToProject)
 
 	return &router.ServeMux

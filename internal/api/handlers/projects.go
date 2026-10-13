@@ -267,6 +267,10 @@ func CreateProjectSecret(w http.ResponseWriter, r *http.Request) {
 		utils.SendErrorMessage(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
+	if strings.Contains(payload.KeyName, " ") {
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Invalid key name, There should no space in key")
+		return
+	}
 	projectKeys, err := database.Q.GetProjectKey(r.Context(), sqlc.GetProjectKeyParams{
 		ProjectID: int64(id),
 		UserID:    claims.Id,
@@ -304,10 +308,6 @@ func CreateProjectSecret(w http.ResponseWriter, r *http.Request) {
 		utils.SendErrorMessage(w, http.StatusBadRequest, "Unable to create secret")
 		return
 	}
-	fmt.Printf("your encrypted secret: %s \n nonce: %s \n\n---", result.Ciphertext, result.Nonce)
-	decrypedText, _ := encryption.DecryptSecret(r.Context(), int64(id), result.Nonce, projectKeys.DekWrapped, result.Ciphertext)
-	fmt.Printf("your decrypted secret: %s \n original: %s \n\n---", decrypedText, payload.Secret)
-
 	utils.SendResponse(w, "Secret created successfully", http.StatusOK)
 }
 
@@ -506,4 +506,60 @@ func InviteProjectMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	utils.SendResponse(w, "Member added successfully", http.StatusOK)
+}
+
+// @Summary		Delete project secret
+// @Description	Delete project secret.
+// @Tags			projects
+// @Accept			json
+// @Produce		json
+// @Security		BearerAuth
+// @Param			id			path		int									true	"Project ID"
+// @Param			secretKey	path		string								true	"Secret ID"
+// @Param			environment	path		string								true	"Environment"
+// @Param			request		body		handlers.CreateProjectSecretParams	true	"Secret to create"
+// @Success		200			{object}	utils.EnvelopResponse[string]
+// @Failure		400			{object}	utils.ErrResponse
+// @Failure		404			{object}	utils.ErrResponse
+// @Failure		401			{object}	utils.ErrResponse
+// @Router			/v1/projects/{id}/secret/{environment}/{secretKey} [delete]
+func DeleteProjectSecret(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		utils.SendErrorMessage(
+			w,
+			http.StatusBadRequest,
+			"invalid project id",
+		)
+		return
+	}
+	secretKey := r.PathValue("secretKey")
+	if strings.Trim(secretKey, " ") == "" {
+		utils.SendErrorMessage(
+			w,
+			http.StatusBadRequest,
+			"secret Key can't be empty",
+		)
+		return
+	}
+	environment := r.PathValue("environment")
+	if strings.Trim(environment, " ") == "" {
+		utils.SendErrorMessage(
+			w,
+			http.StatusBadRequest,
+			"environment can't be empty",
+		)
+		return
+	}
+	_, err = database.Q.DeleteSecretByKey(r.Context(), sqlc.DeleteSecretByKeyParams{
+		ProjectID:   int64(id),
+		KeyName:     secretKey,
+		Environment: environment,
+	})
+	if err != nil {
+		logger.Logger.Error(err)
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Unable to delete secret")
+		return
+	}
+	utils.SendResponse(w, "Secret deleted successfully", http.StatusOK)
 }
