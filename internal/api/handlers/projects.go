@@ -1,0 +1,378 @@
+package handlers
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"slices"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/souravlayek/sealed-server/internal/database"
+	"github.com/souravlayek/sealed-server/internal/middleware"
+	"github.com/souravlayek/sealed-server/pkg/auth"
+	"github.com/souravlayek/sealed-server/pkg/encryption"
+	"github.com/souravlayek/sealed-server/pkg/logger"
+	"github.com/souravlayek/sealed-server/pkg/sqlc"
+	"github.com/souravlayek/sealed-server/utils"
+)
+
+const (
+	ROLE_PROJECT_MEMBER = "PROJECT_MEMBER"
+)
+
+// @Summary		Create project
+// @Description	Create a new project.
+// @Tags			projects
+// @Accept			json
+// @Produce		json
+// @Security		BearerAuth
+// @Param			request	body		sqlc.CreateProjectParams	true	"Project details"
+// @Success		200		{object}	utils.EnvelopResponse[handlers.AuthResponse]
+// @Failure		400		{object}	utils.ErrResponse
+// @Failure		401		{object}	utils.ErrResponse
+// @Router			/v1/projects/ [post]
+func CreateProject(w http.ResponseWriter, r *http.Request) {
+	var projectInput sqlc.CreateProjectParams
+	if err := json.NewDecoder(r.Body).Decode(&projectInput); err != nil {
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Invalid request format")
+		return
+	}
+	if len(projectInput.Name) < 3 {
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Invalid project name")
+		return
+	}
+	// Start transaction
+	tx, err := database.Pool.Begin(r.Context())
+	if err != nil {
+		logger.Logger.Errorf(
+			"failed to start transaction: %v",
+			err,
+		)
+
+		utils.SendErrorMessage(
+			w,
+			http.StatusInternalServerError,
+			"failed to create account",
+		)
+		return
+	}
+
+	// Rollback if the transaction has not been committed.
+	defer tx.Rollback(r.Context())
+
+	// Create SQLC queries using the transaction.
+	qtx := database.Q.WithTx(tx)
+	project, err := qtx.CreateProject(r.Context(), projectInput)
+	if err != nil {
+		logger.Logger.Errorf("%v", err)
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Unable to create project")
+		return
+	}
+	claims, ok := r.Context().Value(
+		middleware.UserClaimsKey,
+	).(*auth.Payload)
+
+	if !ok {
+		utils.SendErrorMessage(
+			w,
+			http.StatusUnauthorized,
+			"user authentication required",
+		)
+		return
+	}
+	// Append to Project Member
+	_, err = qtx.AddProjectMember(r.Context(), sqlc.AddProjectMemberParams{
+		ProjectID: project.ID,
+		UserID:    claims.Id,
+		Role:      ROLE_PROJECT_MEMBER,
+	})
+	if err != nil {
+		logger.Logger.Errorf("%v", err)
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Unable to create project")
+		return
+	}
+	// Create Project Key
+	dek, kek_version, err := encryption.GetDekAndKeyVersion(r.Context(), project.ID)
+	if err != nil {
+		logger.Logger.Errorf("%v", err)
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Unable to create project")
+		return
+	}
+
+	_, err = qtx.CreateProjectKey(r.Context(), sqlc.CreateProjectKeyParams{
+		ProjectID:  project.ID,
+		DekWrapped: dek,
+		KekVersion: kek_version,
+	})
+	if err != nil {
+		logger.Logger.Errorf("%v", err)
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Unable to create project")
+		return
+	}
+	// TODO: Create audit event
+
+	// Commit both operations.
+	if err := tx.Commit(r.Context()); err != nil {
+		logger.Logger.Errorf(
+			"failed to commit account creation: %v",
+			err,
+		)
+
+		utils.SendErrorMessage(
+			w,
+			http.StatusInternalServerError,
+			"failed to create account",
+		)
+		return
+	}
+
+	utils.SendResponse(w, project, http.StatusOK)
+}
+
+// @Summary		Get all projects
+// @Description	Get all projects.
+// @Tags			projects
+// @Accept			json
+// @Produce		json
+// @Security		BearerAuth
+// @Success		200	{object}	utils.EnvelopResponse[[]sqlc.ListProjectsRow]
+// @Failure		400	{object}	utils.ErrResponse
+// @Failure		404	{object}	utils.ErrResponse
+// @Failure		401	{object}	utils.ErrResponse
+// @Router			/v1/projects/ [get]
+func GetAllProjects(w http.ResponseWriter, r *http.Request) {
+	claims, ok := r.Context().Value(
+		middleware.UserClaimsKey,
+	).(*auth.Payload)
+
+	if !ok {
+		utils.SendErrorMessage(
+			w,
+			http.StatusUnauthorized,
+			"user authentication required",
+		)
+		return
+	}
+
+	projects, err := database.Q.ListProjects(r.Context(), claims.Id)
+	if err != nil {
+		logger.Logger.Error(err)
+		utils.SendErrorMessage(w, http.StatusNotFound, "Unable to find projects")
+		return
+	}
+	utils.SendResponse(w, projects, http.StatusOK)
+}
+
+// @Summary		Get project details
+// @Description	Get project with secrets.
+// @Tags			projects
+// @Accept			json
+// @Produce		json
+// @Security		BearerAuth
+// @Param			id	path		int	true	"Project ID"
+// @Success		200	{object}	utils.EnvelopResponse[sqlc.GetProjectByIDRow]
+// @Failure		400	{object}	utils.ErrResponse
+// @Failure		404	{object}	utils.ErrResponse
+// @Failure		401	{object}	utils.ErrResponse
+// @Router			/v1/projects/{id} [get]
+func GetProjectDetails(w http.ResponseWriter, r *http.Request) {
+	claims, ok := r.Context().Value(
+		middleware.UserClaimsKey,
+	).(*auth.Payload)
+
+	if !ok {
+		utils.SendErrorMessage(
+			w,
+			http.StatusUnauthorized,
+			"user authentication required",
+		)
+		return
+	}
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		utils.SendErrorMessage(
+			w,
+			http.StatusBadRequest,
+			"invalid project id",
+		)
+		return
+	}
+	project, err := database.Q.GetProjectByID(r.Context(), sqlc.GetProjectByIDParams{
+		UserID: claims.Id,
+		ID:     int64(id),
+	})
+	if err != nil {
+		logger.Logger.Error(err)
+		utils.SendErrorMessage(
+			w,
+			http.StatusNotFound,
+			"Failed to get project",
+		)
+		return
+	}
+	utils.SendResponse(w, project, http.StatusOK)
+}
+
+type CreateProjectSecretParams struct {
+	Environment  string `json:"environment"`
+	KeyName      string `json:"key_name"`
+	Secret       string `json:"secret"`
+	RotationDays int64  `json:"rotation_days"`
+}
+
+// @Summary		Create project secret
+// @Description	Create project secret.
+// @Tags			projects
+// @Accept			json
+// @Produce		json
+// @Security		BearerAuth
+// @Param			id		path		int									true	"Project ID"
+// @Param			request	body		handlers.CreateProjectSecretParams	true	"Secret to create"
+// @Success		200		{object}	utils.EnvelopResponse[string]
+// @Failure		400		{object}	utils.ErrResponse
+// @Failure		404		{object}	utils.ErrResponse
+// @Failure		401		{object}	utils.ErrResponse
+// @Router			/v1/projects/{id}/secret [post]
+func CreateProjectSecret(w http.ResponseWriter, r *http.Request) {
+	claims, ok := r.Context().Value(
+		middleware.UserClaimsKey,
+	).(*auth.Payload)
+
+	if !ok {
+		utils.SendErrorMessage(
+			w,
+			http.StatusUnauthorized,
+			"user authentication required",
+		)
+		return
+	}
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		utils.SendErrorMessage(
+			w,
+			http.StatusBadRequest,
+			"invalid project id",
+		)
+		return
+	}
+	var payload CreateProjectSecretParams
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+	projectKeys, err := database.Q.GetProjectKey(r.Context(), sqlc.GetProjectKeyParams{
+		ProjectID: int64(id),
+		UserID:    claims.Id,
+	})
+
+	if err != nil {
+		utils.SendErrorMessage(w, http.StatusNotFound, "Unable to find project")
+		return
+	}
+	if !slices.Contains(projectKeys.Environments, payload.Environment) {
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Invalid environment")
+		return
+	}
+
+	result, err := encryption.EncryptSecret(r.Context(), int64(id), payload.Secret, projectKeys.DekWrapped)
+	if err != nil {
+		logger.Logger.Error(err)
+		utils.SendErrorMessage(w, http.StatusNotAcceptable, "Unable to create secret")
+		return
+	}
+	changeTime := time.Now()
+	secretParams := sqlc.CreateSecretParams{
+		ProjectID:      int64(id),
+		Environment:    payload.Environment,
+		RotationDays:   payload.RotationDays,
+		KeyName:        payload.KeyName,
+		KekVersion:     &projectKeys.KekVersion,
+		Ciphertext:     &result.Ciphertext,
+		Nonce:          &result.Nonce,
+		ValueChangedAt: &changeTime,
+	}
+	_, err = database.Q.CreateSecret(r.Context(), secretParams)
+	if err != nil {
+		logger.Logger.Error(err)
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Unable to create secret")
+		return
+	}
+	fmt.Printf("your encrypted secret: %s \n nonce: %s \n\n---", result.Ciphertext, result.Nonce)
+	decrypedText, _ := encryption.DecryptSecret(r.Context(), int64(id), result.Nonce, projectKeys.DekWrapped, result.Ciphertext)
+	fmt.Printf("your decrypted secret: %s \n original: %s \n\n---", decrypedText, payload.Secret)
+
+	utils.SendResponse(w, "Secret created successfully", http.StatusOK)
+}
+
+type AddEnvironmentToProjectPayload struct {
+	Environment string `json:"environment"`
+}
+
+// @Summary		Add environment to project
+// @Description	Add environment to project.
+// @Tags			projects
+// @Accept			json
+// @Produce		json
+// @Security		BearerAuth
+// @Param			id		path		int								true	"Project ID"
+// @Param			request	body		AddEnvironmentToProjectPayload	true	"Environemnt"
+// @Success		200		{object}	utils.EnvelopResponse[string]
+// @Failure		400		{object}	utils.ErrResponse
+// @Failure		404		{object}	utils.ErrResponse
+// @Failure		401		{object}	utils.ErrResponse
+// @Router			/v1/projects/{id}/environment [put]
+func AddEnvironmentToProject(w http.ResponseWriter, r *http.Request) {
+	claims, ok := r.Context().Value(
+		middleware.UserClaimsKey,
+	).(*auth.Payload)
+
+	if !ok {
+		utils.SendErrorMessage(
+			w,
+			http.StatusUnauthorized,
+			"user authentication required",
+		)
+		return
+	}
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		utils.SendErrorMessage(
+			w,
+			http.StatusBadRequest,
+			"invalid project id",
+		)
+		return
+	}
+	var payload AddEnvironmentToProjectPayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+	if strings.Trim(payload.Environment, " ") == "" {
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+	project, err := database.Q.GetProjectByID(r.Context(), sqlc.GetProjectByIDParams{
+		UserID: claims.Id,
+		ID:     int64(id),
+	})
+	if err != nil {
+		utils.SendErrorMessage(w, http.StatusNotFound, "Unable to found project")
+		return
+	}
+	if slices.Contains(project.Environments, payload.Environment) {
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Environment already exist")
+		return
+	}
+	_, err = database.Q.UpdateProjectEnvironments(r.Context(), sqlc.UpdateProjectEnvironmentsParams{
+		ID:           int64(id),
+		Environments: append(project.Environments, payload.Environment),
+	})
+	if err != nil {
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Unable to add environment")
+		return
+	}
+	utils.SendResponse(w, "Successfully added environment", http.StatusOK)
+}

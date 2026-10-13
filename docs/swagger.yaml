@@ -1,5 +1,10 @@
 basePath: /api
 definitions:
+  handlers.AddEnvironmentToProjectPayload:
+    properties:
+      environment:
+        type: string
+    type: object
   handlers.AuthResponse:
     properties:
       access_token:
@@ -7,6 +12,17 @@ definitions:
       message:
         type: string
       refresh_token:
+        type: string
+    type: object
+  handlers.CreateProjectSecretParams:
+    properties:
+      environment:
+        type: string
+      key_name:
+        type: string
+      rotation_days:
+        type: integer
+      secret:
         type: string
     type: object
   handlers.LoginInput:
@@ -25,6 +41,35 @@ definitions:
       name:
         type: string
     type: object
+  pgtype.InfinityModifier:
+    enum:
+    - 1
+    - 0
+    - -1
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - Infinity
+    - Finite
+    - NegativeInfinity
+  pgtype.Timestamptz:
+    properties:
+      infinityModifier:
+        $ref: '#/definitions/pgtype.InfinityModifier'
+      time:
+        type: string
+      valid:
+        type: boolean
+    type: object
+  sqlc.CreateProjectParams:
+    properties:
+      environments:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+    type: object
   sqlc.CreateUserParams:
     properties:
       email:
@@ -33,6 +78,45 @@ definitions:
         type: string
       password:
         type: string
+    type: object
+  sqlc.GetProjectByIDRow:
+    properties:
+      created_at:
+        $ref: '#/definitions/pgtype.Timestamptz'
+      environments:
+        items:
+          type: string
+        type: array
+      id:
+        type: integer
+      members: {}
+      my_role:
+        type: string
+      name:
+        type: string
+      secrets: {}
+    type: object
+  sqlc.ListProjectsRow:
+    properties:
+      created_at:
+        $ref: '#/definitions/pgtype.Timestamptz'
+      environments:
+        items:
+          type: string
+        type: array
+      id:
+        type: integer
+      name:
+        type: string
+      role:
+        type: string
+    type: object
+  utils.EnvelopResponse-array_sqlc_ListProjectsRow:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/sqlc.ListProjectsRow'
+        type: array
     type: object
   utils.EnvelopResponse-handlers_AuthResponse:
     properties:
@@ -43,6 +127,16 @@ definitions:
     properties:
       data:
         $ref: '#/definitions/handlers.UserProfileResponse'
+    type: object
+  utils.EnvelopResponse-sqlc_GetProjectByIDRow:
+    properties:
+      data:
+        $ref: '#/definitions/sqlc.GetProjectByIDRow'
+    type: object
+  utils.EnvelopResponse-string:
+    properties:
+      data:
+        type: string
     type: object
   utils.ErrResponse:
     properties:
@@ -175,6 +269,183 @@ paths:
       summary: Get current user profile
       tags:
       - auth
+  /v1/projects/:
+    get:
+      consumes:
+      - application/json
+      description: Get all projects.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.EnvelopResponse-array_sqlc_ListProjectsRow'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+      security:
+      - BearerAuth: []
+      summary: Get all projects
+      tags:
+      - projects
+    post:
+      consumes:
+      - application/json
+      description: Create a new project.
+      parameters:
+      - description: Project details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/sqlc.CreateProjectParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.EnvelopResponse-handlers_AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+      security:
+      - BearerAuth: []
+      summary: Create project
+      tags:
+      - projects
+  /v1/projects/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get project with secrets.
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.EnvelopResponse-sqlc_GetProjectByIDRow'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+      security:
+      - BearerAuth: []
+      summary: Get project details
+      tags:
+      - projects
+  /v1/projects/{id}/environment:
+    put:
+      consumes:
+      - application/json
+      description: Add environment to project.
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Environemnt
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.AddEnvironmentToProjectPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.EnvelopResponse-string'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+      security:
+      - BearerAuth: []
+      summary: Add environment to project
+      tags:
+      - projects
+  /v1/projects/{id}/secret:
+    post:
+      consumes:
+      - application/json
+      description: Create project secret.
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Secret to create
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateProjectSecretParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.EnvelopResponse-string'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+      security:
+      - BearerAuth: []
+      summary: Create project secret
+      tags:
+      - projects
 schemes:
 - http
 securityDefinitions:

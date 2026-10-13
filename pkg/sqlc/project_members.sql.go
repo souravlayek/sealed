@@ -8,6 +8,8 @@ package sqlc
 import (
 	"context"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const addProjectMember = `-- name: AddProjectMember :one
@@ -141,7 +143,7 @@ func (q *Queries) ListProjectMembers(ctx context.Context, projectID int64) ([]Li
 
 const listUserProjects = `-- name: ListUserProjects :many
 SELECT
-    p.id, p.name, p.environments, p.deleted_at,
+    p.id, p.name, p.environments, p.deleted_at, p.created_at,
     pm.role AS member_role
 FROM "project_members" pm
 JOIN "project" p
@@ -153,11 +155,12 @@ ORDER BY p.id DESC
 `
 
 type ListUserProjectsRow struct {
-	ID           int64      `json:"id"`
-	Name         string     `json:"name"`
-	Environments []byte     `json:"environments"`
-	DeletedAt    *time.Time `json:"deleted_at"`
-	MemberRole   string     `json:"member_role"`
+	ID           int64              `json:"id"`
+	Name         string             `json:"name"`
+	Environments []string           `json:"environments"`
+	DeletedAt    *time.Time         `json:"deleted_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	MemberRole   string             `json:"member_role"`
 }
 
 func (q *Queries) ListUserProjects(ctx context.Context, userID int64) ([]ListUserProjectsRow, error) {
@@ -174,6 +177,7 @@ func (q *Queries) ListUserProjects(ctx context.Context, userID int64) ([]ListUse
 			&i.Name,
 			&i.Environments,
 			&i.DeletedAt,
+			&i.CreatedAt,
 			&i.MemberRole,
 		); err != nil {
 			return nil, err

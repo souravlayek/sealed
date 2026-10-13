@@ -24,26 +24,29 @@ type AuditEvent struct {
 }
 
 type Device struct {
-	ID            int64      `json:"id"`
-	UserID        int64      `json:"user_id"`
-	Ed25519Pubkey string     `json:"ed25519_pubkey"`
-	LastUsedAt    *time.Time `json:"last_used_at"`
-	RevokedAt     *time.Time `json:"revoked_at"`
-	DeletedAt     *time.Time `json:"deleted_at"`
+	ID            int64              `json:"id"`
+	UserID        int64              `json:"user_id"`
+	Ed25519Pubkey string             `json:"ed25519_pubkey"`
+	LastUsedAt    *time.Time         `json:"last_used_at"`
+	RevokedAt     *time.Time         `json:"revoked_at"`
+	DeletedAt     *time.Time         `json:"deleted_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 }
 
 type Project struct {
-	ID           int64      `json:"id"`
-	Name         string     `json:"name"`
-	Environments []byte     `json:"environments"`
-	DeletedAt    *time.Time `json:"deleted_at"`
+	ID           int64              `json:"id"`
+	Name         string             `json:"name"`
+	Environments []string           `json:"environments"`
+	DeletedAt    *time.Time         `json:"deleted_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
 type ProjectKey struct {
-	ProjectID  int64      `json:"project_id"`
-	DekWrapped string     `json:"dek_wrapped"`
-	KekVersion string     `json:"kek_version"`
-	DeletedAt  *time.Time `json:"deleted_at"`
+	ProjectID  int64              `json:"project_id"`
+	DekWrapped string             `json:"dek_wrapped"`
+	KekVersion string             `json:"kek_version"`
+	DeletedAt  *time.Time         `json:"deleted_at"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
 type ProjectMember struct {
@@ -63,16 +66,17 @@ type Secret struct {
 	Nonce          *string            `json:"nonce"`
 	KekVersion     *string            `json:"kek_version"`
 	ValueChangedAt *time.Time         `json:"value_changed_at"`
-	RotationDays   pgtype.Int4        `json:"rotation_days"`
+	RotationDays   int64              `json:"rotation_days"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
 type User struct {
-	ID        int64      `json:"id"`
-	Email     string     `json:"email"`
-	Name      string     `json:"name"`
-	Role      string     `json:"role"`
-	Password  string     `json:"password"`
-	IsActive  bool       `json:"is_active"`
-	DeletedAt *time.Time `json:"deleted_at"`
+	ID        int64              `json:"id"`
+	Email     string             `json:"email"`
+	Name      string             `json:"name"`
+	Role      string             `json:"role"`
+	Password  string             `json:"password"`
+	IsActive  bool               `json:"is_active"`
+	DeletedAt *time.Time         `json:"deleted_at"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }

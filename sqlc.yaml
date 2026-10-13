@@ -22,3 +22,9 @@ sql:
               type: "string"
               pointer: true
             nullable: true
+          - column: "project.environments"
+            go_type:
+             type: "[]string"
+          - column: "secrets.rotation_days"
+            go_type:
+             type: "int64"

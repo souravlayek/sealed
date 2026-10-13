@@ -16,7 +16,7 @@ INSERT INTO "devices" (
     ed25519_pubkey
 )
 VALUES ($1, $2)
-RETURNING id, user_id, ed25519_pubkey, last_used_at, revoked_at, deleted_at
+RETURNING id, user_id, ed25519_pubkey, last_used_at, revoked_at, deleted_at, created_at
 `
 
 type CreateDeviceParams struct {
@@ -34,12 +34,13 @@ func (q *Queries) CreateDevice(ctx context.Context, arg CreateDeviceParams) (Dev
 		&i.LastUsedAt,
 		&i.RevokedAt,
 		&i.DeletedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getDeviceByID = `-- name: GetDeviceByID :one
-SELECT id, user_id, ed25519_pubkey, last_used_at, revoked_at, deleted_at
+SELECT id, user_id, ed25519_pubkey, last_used_at, revoked_at, deleted_at, created_at
 FROM "devices"
 WHERE id = $1
   AND deleted_at IS NULL
@@ -56,12 +57,13 @@ func (q *Queries) GetDeviceByID(ctx context.Context, id int64) (Device, error) {
 		&i.LastUsedAt,
 		&i.RevokedAt,
 		&i.DeletedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getDeviceByPublicKey = `-- name: GetDeviceByPublicKey :one
-SELECT id, user_id, ed25519_pubkey, last_used_at, revoked_at, deleted_at
+SELECT id, user_id, ed25519_pubkey, last_used_at, revoked_at, deleted_at, created_at
 FROM "devices"
 WHERE ed25519_pubkey = $1
   AND deleted_at IS NULL
@@ -78,12 +80,13 @@ func (q *Queries) GetDeviceByPublicKey(ctx context.Context, ed25519Pubkey string
 		&i.LastUsedAt,
 		&i.RevokedAt,
 		&i.DeletedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const listUserDevices = `-- name: ListUserDevices :many
-SELECT id, user_id, ed25519_pubkey, last_used_at, revoked_at, deleted_at
+SELECT id, user_id, ed25519_pubkey, last_used_at, revoked_at, deleted_at, created_at
 FROM "devices"
 WHERE user_id = $1
   AND deleted_at IS NULL
@@ -106,6 +109,7 @@ func (q *Queries) ListUserDevices(ctx context.Context, userID int64) ([]Device, 
 			&i.LastUsedAt,
 			&i.RevokedAt,
 			&i.DeletedAt,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -122,7 +126,7 @@ UPDATE "devices"
 SET deleted_at = NULL
 WHERE id = $1
   AND deleted_at IS NOT NULL
-RETURNING id, user_id, ed25519_pubkey, last_used_at, revoked_at, deleted_at
+RETURNING id, user_id, ed25519_pubkey, last_used_at, revoked_at, deleted_at, created_at
 `
 
 func (q *Queries) RestoreDevice(ctx context.Context, id int64) (Device, error) {
@@ -135,6 +139,7 @@ func (q *Queries) RestoreDevice(ctx context.Context, id int64) (Device, error) {
 		&i.LastUsedAt,
 		&i.RevokedAt,
 		&i.DeletedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -144,7 +149,7 @@ UPDATE "devices"
 SET revoked_at = $2
 WHERE id = $1
   AND deleted_at IS NULL
-RETURNING id, user_id, ed25519_pubkey, last_used_at, revoked_at, deleted_at
+RETURNING id, user_id, ed25519_pubkey, last_used_at, revoked_at, deleted_at, created_at
 `
 
 type RevokeDeviceParams struct {
@@ -162,6 +167,7 @@ func (q *Queries) RevokeDevice(ctx context.Context, arg RevokeDeviceParams) (Dev
 		&i.LastUsedAt,
 		&i.RevokedAt,
 		&i.DeletedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -171,7 +177,7 @@ UPDATE "devices"
 SET deleted_at = now()
 WHERE id = $1
   AND deleted_at IS NULL
-RETURNING id, user_id, ed25519_pubkey, last_used_at, revoked_at, deleted_at
+RETURNING id, user_id, ed25519_pubkey, last_used_at, revoked_at, deleted_at, created_at
 `
 
 func (q *Queries) SoftDeleteDevice(ctx context.Context, id int64) (Device, error) {
@@ -184,6 +190,7 @@ func (q *Queries) SoftDeleteDevice(ctx context.Context, id int64) (Device, error
 		&i.LastUsedAt,
 		&i.RevokedAt,
 		&i.DeletedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -193,7 +200,7 @@ UPDATE "devices"
 SET last_used_at = $2
 WHERE id = $1
   AND deleted_at IS NULL
-RETURNING id, user_id, ed25519_pubkey, last_used_at, revoked_at, deleted_at
+RETURNING id, user_id, ed25519_pubkey, last_used_at, revoked_at, deleted_at, created_at
 `
 
 type UpdateDeviceLastUsedParams struct {
@@ -211,6 +218,7 @@ func (q *Queries) UpdateDeviceLastUsed(ctx context.Context, arg UpdateDeviceLast
 		&i.LastUsedAt,
 		&i.RevokedAt,
 		&i.DeletedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }

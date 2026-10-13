@@ -16,7 +16,7 @@ INSERT INTO "user" (
     password
 )
 VALUES ($1, $2, $3)
-RETURNING id, email, name, role, password, is_active, deleted_at
+RETURNING id, email, name, role, password, is_active, deleted_at, created_at
 `
 
 type CreateUserParams struct {
@@ -36,12 +36,13 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.Password,
 		&i.IsActive,
 		&i.DeletedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, name, role, password, is_active, deleted_at
+SELECT id, email, name, role, password, is_active, deleted_at, created_at
 FROM "user"
 WHERE email = $1
   AND deleted_at IS NULL
@@ -59,12 +60,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.Password,
 		&i.IsActive,
 		&i.DeletedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, name, role, password, is_active, deleted_at
+SELECT id, email, name, role, password, is_active, deleted_at, created_at
 FROM "user"
 WHERE id = $1
   AND deleted_at IS NULL
@@ -82,12 +84,13 @@ func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
 		&i.Password,
 		&i.IsActive,
 		&i.DeletedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, email, name, role, password, is_active, deleted_at
+SELECT id, email, name, role, password, is_active, deleted_at, created_at
 FROM "user"
 WHERE deleted_at IS NULL
 ORDER BY id DESC
@@ -116,6 +119,7 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 			&i.Password,
 			&i.IsActive,
 			&i.DeletedAt,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -132,7 +136,7 @@ UPDATE "user"
 SET deleted_at = NULL
 WHERE id = $1
   AND deleted_at IS NOT NULL
-RETURNING id, email, name, role, password, is_active, deleted_at
+RETURNING id, email, name, role, password, is_active, deleted_at, created_at
 `
 
 func (q *Queries) RestoreUser(ctx context.Context, id int64) (User, error) {
@@ -146,6 +150,7 @@ func (q *Queries) RestoreUser(ctx context.Context, id int64) (User, error) {
 		&i.Password,
 		&i.IsActive,
 		&i.DeletedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -155,7 +160,7 @@ UPDATE "user"
 SET deleted_at = now()
 WHERE id = $1
   AND deleted_at IS NULL
-RETURNING id, email, name, role, password, is_active, deleted_at
+RETURNING id, email, name, role, password, is_active, deleted_at, created_at
 `
 
 func (q *Queries) SoftDeleteUser(ctx context.Context, id int64) (User, error) {
@@ -169,6 +174,7 @@ func (q *Queries) SoftDeleteUser(ctx context.Context, id int64) (User, error) {
 		&i.Password,
 		&i.IsActive,
 		&i.DeletedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -183,7 +189,7 @@ SET
     is_active = $6
 WHERE id = $1
   AND deleted_at IS NULL
-RETURNING id, email, name, role, password, is_active, deleted_at
+RETURNING id, email, name, role, password, is_active, deleted_at, created_at
 `
 
 type UpdateUserParams struct {
@@ -213,6 +219,7 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.Password,
 		&i.IsActive,
 		&i.DeletedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -222,7 +229,7 @@ UPDATE "user"
 SET is_active = $2
 WHERE id = $1
   AND deleted_at IS NULL
-RETURNING id, email, name, role, password, is_active, deleted_at
+RETURNING id, email, name, role, password, is_active, deleted_at, created_at
 `
 
 type UpdateUserStatusParams struct {
@@ -241,6 +248,7 @@ func (q *Queries) UpdateUserStatus(ctx context.Context, arg UpdateUserStatusPara
 		&i.Password,
 		&i.IsActive,
 		&i.DeletedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }

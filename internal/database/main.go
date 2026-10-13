@@ -11,7 +11,8 @@ import (
 )
 
 var (
-	Q *sqlc.Queries
+	Q    *sqlc.Queries
+	Pool *pgxpool.Pool
 )
 
 func ConnectDB() *pgxpool.Pool {
@@ -20,6 +21,7 @@ func ConnectDB() *pgxpool.Pool {
 	if err != nil {
 		panic(err)
 	}
+	Pool = pool
 	Q = sqlc.New(pool)
 
 	// Register DB stats in expvar

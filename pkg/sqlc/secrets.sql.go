@@ -8,8 +8,6 @@ package sqlc
 import (
 	"context"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createSecret = `-- name: CreateSecret :one
@@ -37,14 +35,14 @@ RETURNING id, project_id, environment, key_name, ciphertext, nonce, kek_version,
 `
 
 type CreateSecretParams struct {
-	ProjectID      int64       `json:"project_id"`
-	Environment    string      `json:"environment"`
-	KeyName        string      `json:"key_name"`
-	Ciphertext     *string     `json:"ciphertext"`
-	Nonce          *string     `json:"nonce"`
-	KekVersion     *string     `json:"kek_version"`
-	ValueChangedAt *time.Time  `json:"value_changed_at"`
-	RotationDays   pgtype.Int4 `json:"rotation_days"`
+	ProjectID      int64      `json:"project_id"`
+	Environment    string     `json:"environment"`
+	KeyName        string     `json:"key_name"`
+	Ciphertext     *string    `json:"ciphertext"`
+	Nonce          *string    `json:"nonce"`
+	KekVersion     *string    `json:"kek_version"`
+	ValueChangedAt *time.Time `json:"value_changed_at"`
+	RotationDays   int64      `json:"rotation_days"`
 }
 
 func (q *Queries) CreateSecret(ctx context.Context, arg CreateSecretParams) (Secret, error) {
@@ -283,12 +281,12 @@ RETURNING id, project_id, environment, key_name, ciphertext, nonce, kek_version,
 `
 
 type UpdateSecretParams struct {
-	ID             int64       `json:"id"`
-	Ciphertext     *string     `json:"ciphertext"`
-	Nonce          *string     `json:"nonce"`
-	KekVersion     *string     `json:"kek_version"`
-	ValueChangedAt *time.Time  `json:"value_changed_at"`
-	RotationDays   pgtype.Int4 `json:"rotation_days"`
+	ID             int64      `json:"id"`
+	Ciphertext     *string    `json:"ciphertext"`
+	Nonce          *string    `json:"nonce"`
+	KekVersion     *string    `json:"kek_version"`
+	ValueChangedAt *time.Time `json:"value_changed_at"`
+	RotationDays   int64      `json:"rotation_days"`
 }
 
 func (q *Queries) UpdateSecret(ctx context.Context, arg UpdateSecretParams) (Secret, error) {

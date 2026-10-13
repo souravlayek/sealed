@@ -7,6 +7,8 @@ package sqlc
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createProject = `-- name: CreateProject :one
@@ -15,12 +17,12 @@ INSERT INTO "project" (
     environments
 )
 VALUES ($1, $2)
-RETURNING id, name, environments, deleted_at
+RETURNING id, name, environments, deleted_at, created_at
 `
 
 type CreateProjectParams struct {
-	Name         string `json:"name"`
-	Environments []byte `json:"environments"`
+	Name         string   `json:"name"`
+	Environments []string `json:"environments"`
 }
 
 func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (Project, error) {
@@ -31,57 +33,110 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (P
 		&i.Name,
 		&i.Environments,
 		&i.DeletedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getProjectByID = `-- name: GetProjectByID :one
-SELECT id, name, environments, deleted_at
-FROM "project"
-WHERE id = $1
-  AND deleted_at IS NULL
-LIMIT 1
+SELECT
+  p.id,
+  p.name,
+  p.environments,
+  p.created_at,
+  me.role AS my_role,
+  COALESCE((
+    SELECT json_agg(json_build_object('user_id', m.user_id, 'role', m.role))
+    FROM project_members m
+    WHERE m.project_id = p.id
+      AND m.deleted_at IS NULL
+  ), '[]'::json) AS members,
+  COALESCE((
+    SELECT json_object_agg(e.environment, e.key_names)
+    FROM (
+      SELECT s.environment, json_agg(s.key_name ORDER BY s.key_name) AS key_names
+      FROM secrets s
+      WHERE s.project_id = p.id
+      GROUP BY s.environment
+    ) e
+  ), '{}'::json) AS secrets
+FROM project p
+JOIN project_members me
+  ON me.project_id = p.id
+ AND me.user_id = $1          -- requesting user
+ AND me.deleted_at IS NULL
+WHERE p.id = $2               -- project id
+  AND p.deleted_at IS NULL
 `
 
-func (q *Queries) GetProjectByID(ctx context.Context, id int64) (Project, error) {
-	row := q.db.QueryRow(ctx, getProjectByID, id)
-	var i Project
+type GetProjectByIDParams struct {
+	UserID int64 `json:"user_id"`
+	ID     int64 `json:"id"`
+}
+
+type GetProjectByIDRow struct {
+	ID           int64              `json:"id"`
+	Name         string             `json:"name"`
+	Environments []string           `json:"environments"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	MyRole       string             `json:"my_role"`
+	Members      interface{}        `json:"members"`
+	Secrets      interface{}        `json:"secrets"`
+}
+
+func (q *Queries) GetProjectByID(ctx context.Context, arg GetProjectByIDParams) (GetProjectByIDRow, error) {
+	row := q.db.QueryRow(ctx, getProjectByID, arg.UserID, arg.ID)
+	var i GetProjectByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
 		&i.Environments,
-		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.MyRole,
+		&i.Members,
+		&i.Secrets,
 	)
 	return i, err
 }
 
 const listProjects = `-- name: ListProjects :many
-SELECT id, name, environments, deleted_at
-FROM "project"
-WHERE deleted_at IS NULL
-ORDER BY id DESC
-LIMIT $1 OFFSET $2
+SELECT
+  p.id,
+  p.name,
+  p.environments,
+  p.created_at,
+  pm.role
+FROM project p
+JOIN project_members pm
+  ON pm.project_id = p.id
+WHERE pm.user_id = $1          -- the user's id
+  AND pm.deleted_at IS NULL
+  AND p.deleted_at IS NULL
 `
 
-type ListProjectsParams struct {
-	Limit  int32 `json:"limit"`
-	Offset int32 `json:"offset"`
+type ListProjectsRow struct {
+	ID           int64              `json:"id"`
+	Name         string             `json:"name"`
+	Environments []string           `json:"environments"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	Role         string             `json:"role"`
 }
 
-func (q *Queries) ListProjects(ctx context.Context, arg ListProjectsParams) ([]Project, error) {
-	rows, err := q.db.Query(ctx, listProjects, arg.Limit, arg.Offset)
+func (q *Queries) ListProjects(ctx context.Context, userID int64) ([]ListProjectsRow, error) {
+	rows, err := q.db.Query(ctx, listProjects, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Project{}
+	items := []ListProjectsRow{}
 	for rows.Next() {
-		var i Project
+		var i ListProjectsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
 			&i.Environments,
-			&i.DeletedAt,
+			&i.CreatedAt,
+			&i.Role,
 		); err != nil {
 			return nil, err
 		}
@@ -98,7 +153,7 @@ UPDATE "project"
 SET deleted_at = NULL
 WHERE id = $1
   AND deleted_at IS NOT NULL
-RETURNING id, name, environments, deleted_at
+RETURNING id, name, environments, deleted_at, created_at
 `
 
 func (q *Queries) RestoreProject(ctx context.Context, id int64) (Project, error) {
@@ -109,6 +164,7 @@ func (q *Queries) RestoreProject(ctx context.Context, id int64) (Project, error)
 		&i.Name,
 		&i.Environments,
 		&i.DeletedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -118,7 +174,7 @@ UPDATE "project"
 SET deleted_at = now()
 WHERE id = $1
   AND deleted_at IS NULL
-RETURNING id, name, environments, deleted_at
+RETURNING id, name, environments, deleted_at, created_at
 `
 
 func (q *Queries) SoftDeleteProject(ctx context.Context, id int64) (Project, error) {
@@ -129,6 +185,7 @@ func (q *Queries) SoftDeleteProject(ctx context.Context, id int64) (Project, err
 		&i.Name,
 		&i.Environments,
 		&i.DeletedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -140,13 +197,13 @@ SET
     environments = $3
 WHERE id = $1
   AND deleted_at IS NULL
-RETURNING id, name, environments, deleted_at
+RETURNING id, name, environments, deleted_at, created_at
 `
 
 type UpdateProjectParams struct {
-	ID           int64  `json:"id"`
-	Name         string `json:"name"`
-	Environments []byte `json:"environments"`
+	ID           int64    `json:"id"`
+	Name         string   `json:"name"`
+	Environments []string `json:"environments"`
 }
 
 func (q *Queries) UpdateProject(ctx context.Context, arg UpdateProjectParams) (Project, error) {
@@ -157,6 +214,7 @@ func (q *Queries) UpdateProject(ctx context.Context, arg UpdateProjectParams) (P
 		&i.Name,
 		&i.Environments,
 		&i.DeletedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -166,12 +224,12 @@ UPDATE "project"
 SET environments = $2
 WHERE id = $1
   AND deleted_at IS NULL
-RETURNING id, name, environments, deleted_at
+RETURNING id, name, environments, deleted_at, created_at
 `
 
 type UpdateProjectEnvironmentsParams struct {
-	ID           int64  `json:"id"`
-	Environments []byte `json:"environments"`
+	ID           int64    `json:"id"`
+	Environments []string `json:"environments"`
 }
 
 func (q *Queries) UpdateProjectEnvironments(ctx context.Context, arg UpdateProjectEnvironmentsParams) (Project, error) {
@@ -182,6 +240,7 @@ func (q *Queries) UpdateProjectEnvironments(ctx context.Context, arg UpdateProje
 		&i.Name,
 		&i.Environments,
 		&i.DeletedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
