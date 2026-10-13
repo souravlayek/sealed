@@ -337,6 +337,40 @@ paths:
       tags:
       - projects
   /v1/projects/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete project.
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.EnvelopResponse-string'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete project
+      tags:
+      - projects
     get:
       consumes:
       - application/json

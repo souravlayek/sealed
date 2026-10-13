@@ -220,6 +220,75 @@ func GetProjectDetails(w http.ResponseWriter, r *http.Request) {
 	utils.SendResponse(w, project, http.StatusOK)
 }
 
+// @Summary		Delete project
+// @Description	Delete project.
+// @Tags			projects
+// @Accept			json
+// @Produce		json
+// @Security		BearerAuth
+// @Param			id	path		int	true	"Project ID"
+// @Success		200	{object}	utils.EnvelopResponse[string]
+// @Failure		400	{object}	utils.ErrResponse
+// @Failure		404	{object}	utils.ErrResponse
+// @Failure		401	{object}	utils.ErrResponse
+// @Router			/v1/projects/{id} [delete]
+func DeleteProject(w http.ResponseWriter, r *http.Request) {
+	claims, ok := r.Context().Value(
+		middleware.UserClaimsKey,
+	).(*auth.Payload)
+
+	if !ok {
+		utils.SendErrorMessage(
+			w,
+			http.StatusUnauthorized,
+			"user authentication required",
+		)
+		return
+	}
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		utils.SendErrorMessage(
+			w,
+			http.StatusBadRequest,
+			"invalid project id",
+		)
+		return
+	}
+	project, err := database.Q.GetProjectByID(r.Context(), sqlc.GetProjectByIDParams{
+		UserID: claims.Id,
+		ID:     int64(id),
+	})
+	if err != nil {
+		logger.Logger.Error(err)
+		utils.SendErrorMessage(
+			w,
+			http.StatusNotFound,
+			"Failed to get project",
+		)
+		return
+	}
+	if project.MyRole != ROLE_PROJECT_ADMIN {
+		utils.SendErrorMessage(
+			w,
+			http.StatusBadRequest,
+			"You're not allowed to delete the project",
+		)
+		return
+	}
+
+	_, err = database.Q.SoftDeleteProject(r.Context(), project.ID)
+	if err != nil {
+		logger.Logger.Error(err)
+		utils.SendErrorMessage(
+			w,
+			http.StatusNotFound,
+			"Failed to get project",
+		)
+		return
+	}
+	utils.SendResponse(w, "Project deleted successfully", http.StatusOK)
+}
+
 type CreateProjectSecretParams struct {
 	Environment  string `json:"environment"`
 	KeyName      string `json:"key_name"`
