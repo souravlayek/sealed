@@ -4,15 +4,18 @@ import (
 	"context"
 	"expvar"
 	"os"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/patrickmn/go-cache"
 	"github.com/souravlayek/sealed-server/pkg/logger"
 	"github.com/souravlayek/sealed-server/pkg/sqlc"
 )
 
 var (
-	Q    *sqlc.Queries
-	Pool *pgxpool.Pool
+	Q     *sqlc.Queries
+	Pool  *pgxpool.Pool
+	Cache *cache.Cache
 )
 
 func ConnectDB() *pgxpool.Pool {
@@ -36,5 +39,8 @@ func ConnectDB() *pgxpool.Pool {
 	}))
 
 	logger.Logger.Infow("Database connected Successfully")
+	// Setup Cache too
+	c := cache.New(5*time.Minute, 10*time.Minute)
+	Cache = c
 	return pool
 }

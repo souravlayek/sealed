@@ -25,6 +25,24 @@ definitions:
       secret:
         type: string
     type: object
+  handlers.DeviceCodeAPIPayload:
+    properties:
+      device_name:
+        type: string
+      public_key:
+        items:
+          type: integer
+        type: array
+    type: object
+  handlers.DeviceCodeAPIResponse:
+    properties:
+      device_code:
+        type: string
+      user_code:
+        type: string
+      verification_url:
+        type: string
+    type: object
   handlers.InviteProjectMemberPayload:
     properties:
       email:
@@ -35,6 +53,22 @@ definitions:
       email:
         type: string
       password:
+        type: string
+    type: object
+  handlers.PollingReponse:
+    properties:
+      data:
+        $ref: '#/definitions/handlers.PollingSuccessData'
+      status:
+        description: authorization_pending | slow_down | access_denied | expired_token
+          | done
+        type: string
+    type: object
+  handlers.PollingSuccessData:
+    properties:
+      device_id:
+        type: integer
+      email:
         type: string
     type: object
   handlers.UserProfileResponse:
@@ -127,6 +161,16 @@ definitions:
     properties:
       data:
         $ref: '#/definitions/handlers.AuthResponse'
+    type: object
+  utils.EnvelopResponse-handlers_DeviceCodeAPIResponse:
+    properties:
+      data:
+        $ref: '#/definitions/handlers.DeviceCodeAPIResponse'
+    type: object
+  utils.EnvelopResponse-handlers_PollingReponse:
+    properties:
+      data:
+        $ref: '#/definitions/handlers.PollingReponse'
     type: object
   utils.EnvelopResponse-handlers_UserProfileResponse:
     properties:
@@ -276,6 +320,96 @@ paths:
       summary: Get current user profile
       tags:
       - auth
+  /v1/device/code:
+    post:
+      consumes:
+      - application/json
+      description: Create device code for login.
+      parameters:
+      - description: Device key
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.DeviceCodeAPIPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.EnvelopResponse-handlers_DeviceCodeAPIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+      summary: Create device code
+      tags:
+      - device
+  /v1/device/token:
+    post:
+      consumes:
+      - application/json
+      description: Create device code for login.
+      parameters:
+      - description: Device key
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.DeviceCodeAPIPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.EnvelopResponse-handlers_PollingReponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+      summary: Create device code
+      tags:
+      - device
+  /v1/device/validate:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user and save device details
+      parameters:
+      - description: Device key
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.DeviceCodeAPIPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.EnvelopResponse-handlers_PollingReponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+      summary: Validate Authentication
+      tags:
+      - device
   /v1/projects/:
     get:
       consumes:

@@ -30,6 +30,15 @@ const (
 	KEK_KEY_NAME = "my-kek"
 )
 
+// GenerateDeviceCode creates a secure, human-readable user code (e.g., ABCD-EFGH)
+func GetRandomDeviceCode() (string, error) {
+	bytes := make([]byte, 12)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
+}
+
 func create_wrapped_dek(ctx context.Context, project_id int64) (string, error) {
 	dek, err := create_dek()
 	if err != nil {

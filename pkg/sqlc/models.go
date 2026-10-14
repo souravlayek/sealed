@@ -31,6 +31,18 @@ type Device struct {
 	RevokedAt     *time.Time         `json:"revoked_at"`
 	DeletedAt     *time.Time         `json:"deleted_at"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	DeviceName    *string            `json:"device_name"`
+	DeviceCode    *string            `json:"device_code"`
+}
+
+type DeviceOnHold struct {
+	ID         int64              `json:"id"`
+	DeviceCode string             `json:"device_code"`
+	UserCode   string             `json:"user_code"`
+	DeviceName string             `json:"device_name"`
+	PubKey     string             `json:"pub_key"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt  time.Time          `json:"expires_at"`
 }
 
 type Project struct {

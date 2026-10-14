@@ -27,5 +27,7 @@ func CreateRoutes() *MyCustomRouter {
 	v1Router.Handle("/auth/", http.StripPrefix("/auth", CreateAuthRoutes()))
 	protectedRoutes := middleware.CreateStack(middleware.RequireAuth)
 	v1Router.Handle("/projects/", http.StripPrefix("/projects", protectedRoutes(CreateProjectsRoutes())))
+	v1Router.Handle("/device/", http.StripPrefix("/device", CreateDeviceRoutes()))
+
 	return router
 }

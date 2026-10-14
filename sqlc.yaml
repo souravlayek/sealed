@@ -28,3 +28,6 @@ sql:
           - column: "secrets.rotation_days"
             go_type:
              type: "int64"
+          - column: "device_on_hold.expires_at"
+            go_type:
+              type: "time.Time"
