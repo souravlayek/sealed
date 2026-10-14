@@ -6,8 +6,12 @@ INSERT INTO "devices" (
     device_code
 )
 VALUES ($1, $2, $3, $4)
+ON CONFLICT ("ed25519_pubkey") WHERE "deleted_at" IS NULL
+DO UPDATE SET
+    device_name = EXCLUDED.device_name,
+    device_code = EXCLUDED.device_code
+WHERE "devices".user_id = EXCLUDED.user_id
 RETURNING *;
-
 
 -- name: GetDeviceByDeviceCode :one
 SELECT *

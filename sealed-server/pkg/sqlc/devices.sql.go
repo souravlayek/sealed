@@ -18,6 +18,11 @@ INSERT INTO "devices" (
     device_code
 )
 VALUES ($1, $2, $3, $4)
+ON CONFLICT ("ed25519_pubkey") WHERE "deleted_at" IS NULL
+DO UPDATE SET
+    device_name = EXCLUDED.device_name,
+    device_code = EXCLUDED.device_code
+WHERE "devices".user_id = EXCLUDED.user_id
 RETURNING id, user_id, ed25519_pubkey, last_used_at, revoked_at, deleted_at, created_at, device_name, device_code
 `
 
