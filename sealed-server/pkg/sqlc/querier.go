@@ -47,7 +47,7 @@ type Querier interface {
 	ListSecretsByProject(ctx context.Context, projectID int64) ([]Secret, error)
 	ListSecretsByProjectSlugAndEnvironment(ctx context.Context, arg ListSecretsByProjectSlugAndEnvironmentParams) ([]Secret, error)
 	ListUserAuditEvents(ctx context.Context, arg ListUserAuditEventsParams) ([]AuditEvent, error)
-	ListUserDevices(ctx context.Context, userID int64) ([]Device, error)
+	ListUserDevices(ctx context.Context, userID int64) ([]ListUserDevicesRow, error)
 	ListUserProjects(ctx context.Context, userID int64) ([]ListUserProjectsRow, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)
 	RemoveProjectMember(ctx context.Context, arg RemoveProjectMemberParams) (ProjectMember, error)

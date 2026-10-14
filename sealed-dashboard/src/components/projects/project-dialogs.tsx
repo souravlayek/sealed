@@ -27,6 +27,11 @@ import {
   deleteSecret,
   type SecretMeta,
 } from "@/service/project_service"
+import { useNavigate } from "@tanstack/react-router"
+import { ConfirmDialog } from "@/components/confirm-dialog"
+import { deleteProject, removeEnvironment } from "@/service/project_service"
+import { queryKeys } from "@/lib/query-keys"
+
 
 const KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/
 const ENV_RE = /^[a-z0-9-]+$/
@@ -235,5 +240,65 @@ export function AddEnvironmentDialog({ projectId, slug, onClose }: Common) {
         </form>
       </DialogContent>
     </Dialog>
+  )
+}
+export function DeleteEnvironmentDialog({
+  projectId,
+  slug,
+  environment,
+  secretCount,
+  onClose,
+}: Common & { environment: string; secretCount: number }) {
+  const qc = useQueryClient()
+  const remove = useMutation({
+    mutationFn: () => removeEnvironment(projectId, environment),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["project", slug] })
+      await qc.invalidateQueries({ queryKey: queryKeys.projects })
+      onClose()
+    },
+  })
+
+  return (
+    <ConfirmDialog
+      title={`Delete environment ${environment}?`}
+      description={
+        secretCount > 0
+          ? `This also deletes ${secretCount} secret(s) in ${environment}. This can't be undone.`
+          : `${environment} has no secrets. It will be removed from the project.`
+      }
+      pending={remove.isPending}
+      error={remove.isError ? "Could not delete the environment." : undefined}
+      onConfirm={() => remove.mutate()}
+      onClose={onClose}
+    />
+  )
+}
+
+export function DeleteProjectDialog({
+  projectId,
+  name,
+  onClose,
+}: { projectId: number; name: string; onClose: () => void }) {
+  const qc = useQueryClient()
+  const navigate = useNavigate()
+  const remove = useMutation({
+    mutationFn: () => deleteProject(projectId),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: queryKeys.projects })
+      onClose()
+      navigate({ to: "/" }) // change to your dashboard route
+    },
+  })
+
+  return (
+    <ConfirmDialog
+      title={`Delete ${name}?`}
+      description="This deletes the project, its secrets, and its member access. Rotate any values already loaded onto machines."
+      pending={remove.isPending}
+      error={remove.isError ? "Could not delete the project." : undefined}
+      onConfirm={() => remove.mutate()}
+      onClose={onClose}
+    />
   )
 }

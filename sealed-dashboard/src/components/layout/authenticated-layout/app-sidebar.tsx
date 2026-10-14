@@ -1,6 +1,6 @@
 // src/components/app-sidebar.tsx
 import { useState } from "react"
-import { Link } from "@tanstack/react-router"
+import { Link, useNavigate, useRouter } from "@tanstack/react-router"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Sidebar,
@@ -38,6 +38,8 @@ export function AppSidebar() {
   const qc = useQueryClient()
   const [creating, setCreating] = useState(false)
 
+  const navigate = useNavigate()
+  const router = useRouter()
   const { data: user } = useQuery({
     queryKey: queryKeys.me,
     queryFn: getUserDetails,
@@ -53,13 +55,16 @@ export function AppSidebar() {
     ? user.name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase()
     : "?"
 
-  const logout = () => {
+  const logout = async () => {
     qc.clear() // drop cached data so the next user doesn't see it
     auth.logout()
+    await router.invalidate()          // re-run beforeLoad with the new context
+    await navigate({ to: "/login",search: {redirect: "/dashboard"},replace: true })
   }
 
   return (
     <Sidebar>
+      <Link to="/dashboard">
       <SidebarHeader>
         <div className="flex items-center gap-3 px-2 py-2">
           <div className="flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
@@ -71,7 +76,7 @@ export function AppSidebar() {
           </div>
         </div>
       </SidebarHeader>
-
+</Link>
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Projects</SidebarGroupLabel>

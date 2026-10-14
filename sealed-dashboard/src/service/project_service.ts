@@ -13,6 +13,7 @@ export type Project = {
 }
 
 export type SecretMeta = {
+  id: number
   key_name: string
   rotation_days: number | null
   value_changed_at: string | null
@@ -35,6 +36,7 @@ export type SecretInput = {
   secret: string
   rotation_days: number
 }
+
 export type CreateProjectInput = {
   name: string
   environments: string[]
@@ -44,7 +46,13 @@ export const createProject = (body: CreateProjectInput) =>
   api
     .post<ServerResponse<Project>>("/projects/", body)
     .then((res) => res.data.data)
+// src/service/project_service.ts (add)
+export const deleteProject = (projectId: number) =>
+  api.delete(`/projects/${projectId}`)
 
+// Not in the API yet. The backend needs this route (see section 5).
+export const removeEnvironment = (projectId: number, environment: string) =>
+  api.delete(`/projects/${projectId}/environment/${encodeURIComponent(environment)}`)
 export const getAllProjects = async () =>
   api.get<ServerResponse<Array<Project>>>("/projects/").then((res) => res.data.data)
 
@@ -72,3 +80,9 @@ export function getRotation(s: SecretMeta) {
   const daysLeft = Math.ceil((due.getTime() - Date.now()) / 864e5)
   return { due, daysLeft }
 }
+export type InviteMemberInput = { email: string }
+
+export const inviteMember = (projectId: number, body: InviteMemberInput) =>
+  api
+    .post<ServerResponse<string>>(`/projects/${projectId}/invite-member`, body)
+    .then((res) => res.data.data)

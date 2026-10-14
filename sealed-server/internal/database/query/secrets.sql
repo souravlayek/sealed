@@ -19,6 +19,13 @@ VALUES (
     $7,
     $8
 )
+ON CONFLICT ("project_id", "environment", "key_name")
+DO UPDATE SET
+    ciphertext       = EXCLUDED.ciphertext,
+    nonce            = EXCLUDED.nonce,
+    kek_version      = EXCLUDED.kek_version,
+    rotation_days    = EXCLUDED.rotation_days,
+    value_changed_at = now()
 RETURNING *;
 
 

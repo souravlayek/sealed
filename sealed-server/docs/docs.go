@@ -201,6 +201,35 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/device": {
+            "get": {
+                "description": "Get all devices belonging to the authenticated user.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "device"
+                ],
+                "summary": "Get all devices",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.EnvelopResponse-array_sqlc_Device"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.ErrResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/device/code": {
             "post": {
                 "description": "Create device code for login.",
@@ -247,9 +276,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/v1/device/token": {
+        "/v1/device/revoke": {
             "post": {
-                "description": "Create device code for login.",
+                "description": "Revoke a device belonging to the authenticated user.",
                 "consumes": [
                     "application/json"
                 ],
@@ -259,15 +288,15 @@ const docTemplate = `{
                 "tags": [
                     "device"
                 ],
-                "summary": "Create device code",
+                "summary": "Revoke a device",
                 "parameters": [
                     {
-                        "description": "Device key",
+                        "description": "Device ID to revoke",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.DeviceCodeAPIPayload"
+                            "$ref": "#/definitions/handlers.RevokeDevicePayload"
                         }
                     }
                 ],
@@ -275,7 +304,59 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.EnvelopResponse-handlers_PollingReponse"
+                            "$ref": "#/definitions/utils.EnvelopResponse-sqlc_Device"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.ErrResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.ErrResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.ErrResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/device/token": {
+            "post": {
+                "description": "Poll for device authorization status using device code.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "device"
+                ],
+                "summary": "Poll for device authorization",
+                "parameters": [
+                    {
+                        "description": "Device code",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ValidateTokenPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.EnvelopResponse-handlers_PollingResponse"
                         }
                     },
                     "400": {
@@ -295,7 +376,7 @@ const docTemplate = `{
         },
         "/v1/device/validate": {
             "post": {
-                "description": "Authenticate user and save device details",
+                "description": "Validate user code and register device for authenticated user.",
                 "consumes": [
                     "application/json"
                 ],
@@ -305,15 +386,15 @@ const docTemplate = `{
                 "tags": [
                     "device"
                 ],
-                "summary": "Validate Authentication",
+                "summary": "Validate device authentication",
                 "parameters": [
                     {
-                        "description": "Device key",
+                        "description": "Device code and user code",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.DeviceCodeAPIPayload"
+                            "$ref": "#/definitions/handlers.ValidateAuthenticationPayload"
                         }
                     }
                 ],
@@ -321,7 +402,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/utils.EnvelopResponse-handlers_PollingReponse"
+                            "$ref": "#/definitions/utils.EnvelopResponse-string"
                         }
                     },
                     "400": {
@@ -435,59 +516,6 @@ const docTemplate = `{
             }
         },
         "/v1/projects/{id}": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Get project with secrets.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "projects"
-                ],
-                "summary": "Get project details",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Project ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/utils.EnvelopResponse-sqlc_GetProjectByIDRow"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/utils.ErrResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/utils.ErrResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/utils.ErrResponse"
-                        }
-                    }
-                }
-            },
             "delete": {
                 "security": [
                     {
@@ -812,6 +840,70 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/projects/{id}/secret/{secretId}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update project secret.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "projects"
+                ],
+                "summary": "Update project secret",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Project ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Secret to create",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.CreateProjectSecretParams"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.EnvelopResponse-string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.ErrResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.ErrResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.ErrResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/projects/{projectSlug}/{environment}/secrets": {
             "get": {
                 "description": "Get all project secrets that belongs to env.",
@@ -846,6 +938,61 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/utils.EnvelopResponse-array_handlers_KeyValuePair"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.ErrResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.ErrResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.ErrResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/projects/{slug}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get project with secrets.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "projects"
+                ],
+                "summary": "Get project details",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project Slug",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.EnvelopResponse-sqlc_GetProjectByIDRow"
                         }
                     },
                     "400": {
@@ -968,7 +1115,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.PollingReponse": {
+        "handlers.PollingResponse": {
             "type": "object",
             "properties": {
                 "data": {
@@ -991,6 +1138,14 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.RevokeDevicePayload": {
+            "type": "object",
+            "properties": {
+                "device_id": {
+                    "type": "integer"
+                }
+            }
+        },
         "handlers.UserProfileResponse": {
             "type": "object",
             "properties": {
@@ -1001,6 +1156,25 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.ValidateAuthenticationPayload": {
+            "type": "object",
+            "properties": {
+                "device_code": {
+                    "type": "string"
+                },
+                "user_code": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.ValidateTokenPayload": {
+            "type": "object",
+            "properties": {
+                "device_code": {
                     "type": "string"
                 }
             }
@@ -1058,6 +1232,38 @@ const docTemplate = `{
                 },
                 "password": {
                     "type": "string"
+                }
+            }
+        },
+        "sqlc.Device": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "$ref": "#/definitions/pgtype.Timestamptz"
+                },
+                "deleted_at": {
+                    "type": "string"
+                },
+                "device_code": {
+                    "type": "string"
+                },
+                "device_name": {
+                    "type": "string"
+                },
+                "ed25519_pubkey": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "last_used_at": {
+                    "type": "string"
+                },
+                "revoked_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
                 }
             }
         },
@@ -1126,6 +1332,17 @@ const docTemplate = `{
                 }
             }
         },
+        "utils.EnvelopResponse-array_sqlc_Device": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sqlc.Device"
+                    }
+                }
+            }
+        },
         "utils.EnvelopResponse-array_sqlc_ListProjectsRow": {
             "type": "object",
             "properties": {
@@ -1153,11 +1370,11 @@ const docTemplate = `{
                 }
             }
         },
-        "utils.EnvelopResponse-handlers_PollingReponse": {
+        "utils.EnvelopResponse-handlers_PollingResponse": {
             "type": "object",
             "properties": {
                 "data": {
-                    "$ref": "#/definitions/handlers.PollingReponse"
+                    "$ref": "#/definitions/handlers.PollingResponse"
                 }
             }
         },
@@ -1166,6 +1383,14 @@ const docTemplate = `{
             "properties": {
                 "data": {
                     "$ref": "#/definitions/handlers.UserProfileResponse"
+                }
+            }
+        },
+        "utils.EnvelopResponse-sqlc_Device": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/sqlc.Device"
                 }
             }
         },

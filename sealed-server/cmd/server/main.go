@@ -52,6 +52,7 @@ func main() {
 		middleware.Logger,
 		middleware.RateLimiterMiddleware,
 		middleware.RealIP,
+		middleware.CORSMiddleware,
 	)
 
 	apiRouter.Handle("/api/", http.StripPrefix("/api", nestedRouter))

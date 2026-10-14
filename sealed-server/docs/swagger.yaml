@@ -62,7 +62,7 @@ definitions:
       password:
         type: string
     type: object
-  handlers.PollingReponse:
+  handlers.PollingResponse:
     properties:
       data:
         $ref: '#/definitions/handlers.PollingSuccessData'
@@ -78,6 +78,11 @@ definitions:
       email:
         type: string
     type: object
+  handlers.RevokeDevicePayload:
+    properties:
+      device_id:
+        type: integer
+    type: object
   handlers.UserProfileResponse:
     properties:
       email:
@@ -85,6 +90,18 @@ definitions:
       id:
         type: integer
       name:
+        type: string
+    type: object
+  handlers.ValidateAuthenticationPayload:
+    properties:
+      device_code:
+        type: string
+      user_code:
+        type: string
+    type: object
+  handlers.ValidateTokenPayload:
+    properties:
+      device_code:
         type: string
     type: object
   pgtype.InfinityModifier:
@@ -124,6 +141,27 @@ definitions:
         type: string
       password:
         type: string
+    type: object
+  sqlc.Device:
+    properties:
+      created_at:
+        $ref: '#/definitions/pgtype.Timestamptz'
+      deleted_at:
+        type: string
+      device_code:
+        type: string
+      device_name:
+        type: string
+      ed25519_pubkey:
+        type: string
+      id:
+        type: integer
+      last_used_at:
+        type: string
+      revoked_at:
+        type: string
+      user_id:
+        type: integer
     type: object
   sqlc.GetProjectByIDRow:
     properties:
@@ -168,6 +206,13 @@ definitions:
           $ref: '#/definitions/handlers.KeyValuePair'
         type: array
     type: object
+  utils.EnvelopResponse-array_sqlc_Device:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/sqlc.Device'
+        type: array
+    type: object
   utils.EnvelopResponse-array_sqlc_ListProjectsRow:
     properties:
       data:
@@ -185,15 +230,20 @@ definitions:
       data:
         $ref: '#/definitions/handlers.DeviceCodeAPIResponse'
     type: object
-  utils.EnvelopResponse-handlers_PollingReponse:
+  utils.EnvelopResponse-handlers_PollingResponse:
     properties:
       data:
-        $ref: '#/definitions/handlers.PollingReponse'
+        $ref: '#/definitions/handlers.PollingResponse'
     type: object
   utils.EnvelopResponse-handlers_UserProfileResponse:
     properties:
       data:
         $ref: '#/definitions/handlers.UserProfileResponse'
+    type: object
+  utils.EnvelopResponse-sqlc_Device:
+    properties:
+      data:
+        $ref: '#/definitions/sqlc.Device'
     type: object
   utils.EnvelopResponse-sqlc_GetProjectByIDRow:
     properties:
@@ -338,6 +388,25 @@ paths:
       summary: Get current user profile
       tags:
       - auth
+  /v1/device:
+    get:
+      consumes:
+      - application/json
+      description: Get all devices belonging to the authenticated user.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.EnvelopResponse-array_sqlc_Device'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+      summary: Get all devices
+      tags:
+      - device
   /v1/device/code:
     post:
       consumes:
@@ -368,25 +437,25 @@ paths:
       summary: Create device code
       tags:
       - device
-  /v1/device/token:
+  /v1/device/revoke:
     post:
       consumes:
       - application/json
-      description: Create device code for login.
+      description: Revoke a device belonging to the authenticated user.
       parameters:
-      - description: Device key
+      - description: Device ID to revoke
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handlers.DeviceCodeAPIPayload'
+          $ref: '#/definitions/handlers.RevokeDevicePayload'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.EnvelopResponse-handlers_PollingReponse'
+            $ref: '#/definitions/utils.EnvelopResponse-sqlc_Device'
         "400":
           description: Bad Request
           schema:
@@ -395,28 +464,62 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/utils.ErrResponse'
-      summary: Create device code
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+      summary: Revoke a device
+      tags:
+      - device
+  /v1/device/token:
+    post:
+      consumes:
+      - application/json
+      description: Poll for device authorization status using device code.
+      parameters:
+      - description: Device code
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.ValidateTokenPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.EnvelopResponse-handlers_PollingResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+      summary: Poll for device authorization
       tags:
       - device
   /v1/device/validate:
     post:
       consumes:
       - application/json
-      description: Authenticate user and save device details
+      description: Validate user code and register device for authenticated user.
       parameters:
-      - description: Device key
+      - description: Device code and user code
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handlers.DeviceCodeAPIPayload'
+          $ref: '#/definitions/handlers.ValidateAuthenticationPayload'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.EnvelopResponse-handlers_PollingReponse'
+            $ref: '#/definitions/utils.EnvelopResponse-string'
         "400":
           description: Bad Request
           schema:
@@ -425,7 +528,7 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/utils.ErrResponse'
-      summary: Validate Authentication
+      summary: Validate device authentication
       tags:
       - device
   /v1/projects/:
@@ -521,40 +624,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Delete project
-      tags:
-      - projects
-    get:
-      consumes:
-      - application/json
-      description: Get project with secrets.
-      parameters:
-      - description: Project ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/utils.EnvelopResponse-sqlc_GetProjectByIDRow'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/utils.ErrResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/utils.ErrResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/utils.ErrResponse'
-      security:
-      - BearerAuth: []
-      summary: Get project details
       tags:
       - projects
   /v1/projects/{id}/environment:
@@ -731,6 +800,47 @@ paths:
       summary: Delete project secret
       tags:
       - projects
+  /v1/projects/{id}/secret/{secretId}:
+    put:
+      consumes:
+      - application/json
+      description: Update project secret.
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Secret to create
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateProjectSecretParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.EnvelopResponse-string'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+      security:
+      - BearerAuth: []
+      summary: Update project secret
+      tags:
+      - projects
   /v1/projects/{projectSlug}/{environment}/secrets:
     get:
       consumes:
@@ -767,6 +877,41 @@ paths:
           schema:
             $ref: '#/definitions/utils.ErrResponse'
       summary: Get project secrets
+      tags:
+      - projects
+  /v1/projects/{slug}:
+    get:
+      consumes:
+      - application/json
+      description: Get project with secrets.
+      parameters:
+      - description: Project Slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.EnvelopResponse-sqlc_GetProjectByIDRow'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+      security:
+      - BearerAuth: []
+      summary: Get project details
       tags:
       - projects
 schemes:

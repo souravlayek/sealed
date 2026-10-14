@@ -54,9 +54,15 @@ SELECT
       AND m.deleted_at IS NULL
   ), '[]'::json) AS members,
   COALESCE((
-    SELECT json_object_agg(e.environment, e.key_names)
+    SELECT json_object_agg(e.environment, e.items)
     FROM (
-      SELECT s.environment, json_agg(s.key_name ORDER BY s.key_name) AS key_names
+      SELECT s.environment,
+             json_agg(json_build_object(
+               'key_name', s.key_name,
+               'rotation_days', s.rotation_days,
+               'value_changed_at', s.value_changed_at,
+               'created_at', s.created_at
+             ) ORDER BY s.key_name) AS items
       FROM secrets s
       WHERE s.project_id = p.id
       GROUP BY s.environment
@@ -112,15 +118,29 @@ SELECT
   p.created_at,
   me.role AS my_role,
   COALESCE((
-    SELECT json_agg(json_build_object('user_id', m.user_id, 'role', m.role))
+    SELECT json_agg(
+      json_build_object(
+        'user_id', m.user_id,
+        'name', u.name,
+        'email', u.email,
+        'role', m.role
+      )
+    )
     FROM project_members m
+    JOIN "user" u ON u.id = m.user_id
     WHERE m.project_id = p.id
       AND m.deleted_at IS NULL
   ), '[]'::json) AS members,
   COALESCE((
-    SELECT json_object_agg(e.environment, e.key_names)
+    SELECT json_object_agg(e.environment, e.items)
     FROM (
-      SELECT s.environment, json_agg(s.key_name ORDER BY s.key_name) AS key_names
+      SELECT s.environment,
+             json_agg(json_build_object(
+               'key_name', s.key_name,
+               'rotation_days', s.rotation_days,
+               'value_changed_at', s.value_changed_at,
+               'created_at', s.created_at
+             ) ORDER BY s.key_name) AS items
       FROM secrets s
       WHERE s.project_id = p.id
       GROUP BY s.environment
@@ -131,7 +151,7 @@ JOIN project_members me
   ON me.project_id = p.id
  AND me.user_id = $1          -- requesting user
  AND me.deleted_at IS NULL
-WHERE p.slug = $2               -- project id
+WHERE p.slug = $2             -- project slug
   AND p.deleted_at IS NULL
 `
 

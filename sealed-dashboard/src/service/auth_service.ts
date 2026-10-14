@@ -9,6 +9,16 @@ export type UserResponse = {
     id: number
     name: string
   }
+  export type RegisterInput = {
+    name: string
+    email: string
+    password: string
+  }
+
+  export const registerUser = async (body: RegisterInput) =>
+    api
+      .post<ServerResponse<LoginResponse>>("/auth/register", body)
+      .then((res) => res.data.data)
 export const loginUser = async (email: string, password: string) => api.post<ServerResponse<LoginResponse>>("/auth/signin", {
   email,
   password

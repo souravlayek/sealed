@@ -1,4 +1,4 @@
-import { ProjectDetails } from '@/components/project/project-details'
+import { ProjectDetails } from '@/components/projects/project-details'
 import { getProjectDetails } from '@/service/project_service'
 import { createFileRoute, useLoaderData } from '@tanstack/react-router'
 

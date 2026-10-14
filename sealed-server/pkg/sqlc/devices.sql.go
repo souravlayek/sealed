@@ -8,6 +8,8 @@ package sqlc
 import (
 	"context"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createDevice = `-- name: CreateDevice :one
@@ -213,32 +215,39 @@ func (q *Queries) GetDeviceEntryInTransitByDeviceCode(ctx context.Context, devic
 }
 
 const listUserDevices = `-- name: ListUserDevices :many
-SELECT id, user_id, ed25519_pubkey, last_used_at, revoked_at, deleted_at, created_at, device_name, device_code
+SELECT
+  id, user_id,  last_used_at, revoked_at,  created_at, device_name
 FROM "devices"
 WHERE user_id = $1
   AND deleted_at IS NULL
 ORDER BY id DESC
 `
 
-func (q *Queries) ListUserDevices(ctx context.Context, userID int64) ([]Device, error) {
+type ListUserDevicesRow struct {
+	ID         int64              `json:"id"`
+	UserID     int64              `json:"user_id"`
+	LastUsedAt *time.Time         `json:"last_used_at"`
+	RevokedAt  *time.Time         `json:"revoked_at"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	DeviceName *string            `json:"device_name"`
+}
+
+func (q *Queries) ListUserDevices(ctx context.Context, userID int64) ([]ListUserDevicesRow, error) {
 	rows, err := q.db.Query(ctx, listUserDevices, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Device{}
+	items := []ListUserDevicesRow{}
 	for rows.Next() {
-		var i Device
+		var i ListUserDevicesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
-			&i.Ed25519Pubkey,
 			&i.LastUsedAt,
 			&i.RevokedAt,
-			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.DeviceName,
-			&i.DeviceCode,
 		); err != nil {
 			return nil, err
 		}

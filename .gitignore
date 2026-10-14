@@ -74,3 +74,4 @@ temp/
 # Config files that may contain secrets
 config.local.yaml
 config.local.yml
+bin/

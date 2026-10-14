@@ -176,12 +176,12 @@ func GetAllProjects(w http.ResponseWriter, r *http.Request) {
 // @Accept			json
 // @Produce		json
 // @Security		BearerAuth
-// @Param			id	path		int	true	"Project ID"
-// @Success		200	{object}	utils.EnvelopResponse[sqlc.GetProjectByIDRow]
-// @Failure		400	{object}	utils.ErrResponse
-// @Failure		404	{object}	utils.ErrResponse
-// @Failure		401	{object}	utils.ErrResponse
-// @Router			/v1/projects/{id} [get]
+// @Param			slug	path		string	true	"Project Slug"
+// @Success		200		{object}	utils.EnvelopResponse[sqlc.GetProjectByIDRow]
+// @Failure		400		{object}	utils.ErrResponse
+// @Failure		404		{object}	utils.ErrResponse
+// @Failure		401		{object}	utils.ErrResponse
+// @Router			/v1/projects/{slug} [get]
 func GetProjectDetails(w http.ResponseWriter, r *http.Request) {
 	claims, ok := r.Context().Value(
 		middleware.UserClaimsKey,
@@ -195,18 +195,18 @@ func GetProjectDetails(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	id, err := strconv.Atoi(r.PathValue("id"))
-	if err != nil {
+	slug := r.PathValue("slug")
+	if strings.Trim(slug, " ") == "" {
 		utils.SendErrorMessage(
 			w,
 			http.StatusBadRequest,
-			"invalid project id",
+			"invalid project slug",
 		)
 		return
 	}
-	project, err := database.Q.GetProjectByID(r.Context(), sqlc.GetProjectByIDParams{
+	project, err := database.Q.GetProjectBySlug(r.Context(), sqlc.GetProjectBySlugParams{
 		UserID: claims.Id,
-		ID:     int64(id),
+		Slug:   slug,
 	})
 	if err != nil {
 		logger.Logger.Error(err)
@@ -436,6 +436,97 @@ func CreateProjectSecret(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	utils.SendResponse(w, "Secret created successfully", http.StatusOK)
+}
+
+// @Summary		Update project secret
+// @Description	Update project secret.
+// @Tags			projects
+// @Accept			json
+// @Produce		json
+// @Security		BearerAuth
+// @Param			id		path		int									true	"Project ID"
+// @Param			request	body		handlers.CreateProjectSecretParams	true	"Secret to create"
+// @Success		200		{object}	utils.EnvelopResponse[string]
+// @Failure		400		{object}	utils.ErrResponse
+// @Failure		404		{object}	utils.ErrResponse
+// @Failure		401		{object}	utils.ErrResponse
+// @Router			/v1/projects/{id}/secret/{secretId} [put]
+func UpdateProjectSecret(w http.ResponseWriter, r *http.Request) {
+	claims, ok := r.Context().Value(
+		middleware.UserClaimsKey,
+	).(*auth.Payload)
+
+	if !ok {
+		utils.SendErrorMessage(
+			w,
+			http.StatusUnauthorized,
+			"user authentication required",
+		)
+		return
+	}
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		utils.SendErrorMessage(
+			w,
+			http.StatusBadRequest,
+			"invalid project id",
+		)
+		return
+	}
+	secretId, err := strconv.Atoi(r.PathValue("secretId"))
+	if err != nil {
+		utils.SendErrorMessage(
+			w,
+			http.StatusBadRequest,
+			"invalid secret id",
+		)
+		return
+	}
+	var payload CreateProjectSecretParams
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+	if strings.Contains(payload.KeyName, " ") {
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Invalid key name, There should no space in key")
+		return
+	}
+	projectKeys, err := database.Q.GetProjectKey(r.Context(), sqlc.GetProjectKeyParams{
+		ProjectID: int64(id),
+		UserID:    claims.Id,
+	})
+
+	if err != nil {
+		utils.SendErrorMessage(w, http.StatusNotFound, "Unable to find project")
+		return
+	}
+	if !slices.Contains(projectKeys.Environments, payload.Environment) {
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Invalid environment")
+		return
+	}
+
+	result, err := encryption.EncryptSecret(r.Context(), int64(id), payload.Secret, projectKeys.DekWrapped)
+	if err != nil {
+		logger.Logger.Error(err)
+		utils.SendErrorMessage(w, http.StatusNotAcceptable, "Unable to create secret")
+		return
+	}
+	changeTime := time.Now()
+	secretParams := sqlc.UpdateSecretParams{
+		ID:             int64(secretId),
+		RotationDays:   payload.RotationDays,
+		KekVersion:     &projectKeys.KekVersion,
+		Ciphertext:     &result.Ciphertext,
+		Nonce:          &result.Nonce,
+		ValueChangedAt: &changeTime,
+	}
+	_, err = database.Q.UpdateSecret(r.Context(), secretParams)
+	if err != nil {
+		logger.Logger.Error(err)
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Unable to create secret")
+		return
+	}
+	utils.SendResponse(w, "Secret updated successfully", http.StatusOK)
 }
 
 type AddEnvironmentToProjectPayload struct {

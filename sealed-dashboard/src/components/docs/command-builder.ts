@@ -28,7 +28,10 @@ export function buildCommand(id: CommandId, input: BuilderInput): string {
         : `eval "$(${inner})"`
     }
 
-    case "run":
-      return `sealed run -- ${input.runCommand || "<command>"}`
+    case "run": {
+      const project = input.project || "<project>"
+      const env = input.environment || "<env>"
+      return `sealed run ${project} ${env} -- ${input.runCommand || "<command>"}`
+    }
   }
 }

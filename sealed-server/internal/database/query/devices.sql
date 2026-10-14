@@ -38,7 +38,8 @@ LIMIT 1;
 
 
 -- name: ListUserDevices :many
-SELECT *
+SELECT
+  id, user_id,  last_used_at, revoked_at,  created_at, device_name
 FROM "devices"
 WHERE user_id = $1
   AND deleted_at IS NULL

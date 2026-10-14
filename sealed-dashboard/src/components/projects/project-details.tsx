@@ -1,25 +1,31 @@
 // src/components/projects/project-details.tsx
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { AlertTriangle, Pencil, Plus, Trash2 } from "lucide-react"
+import { AlertTriangle, Pencil, Plus, Terminal, Trash2 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { getProjectDetails, getRotation, type SecretMeta } from "@/service/project_service"
 import {
   AddEnvironmentDialog,
+  DeleteEnvironmentDialog,
+  DeleteProjectDialog,
   DeleteSecretDialog,
   SecretDialog,
 } from "./project-dialogs"
-
+import { CliCommandsModal } from "./cli-commands-modal"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { MembersSection, type Member } from "@/components/projects/members-section"
 type DialogState =
   | { type: "add-secret" }
   | { type: "edit-secret"; secret: SecretMeta }
   | { type: "delete-secret"; secret: SecretMeta }
   | { type: "add-env" }
+  | { type: "delete-env"; environment: string }
+  | { type: "delete-project" }
+  | { type: "cli" }
   | null
 
 export function ProjectDetails({ slug }: { slug: string }) {
@@ -40,7 +46,9 @@ export function ProjectDetails({ slug }: { slug: string }) {
     )
   }
 
-  const env = activeEnv ?? project.environments[0]
+  const env = project.environments.includes(activeEnv ?? "")
+    ? activeEnv!
+    : project.environments[0]
   const secrets = env ? project.secrets[env] ?? [] : []
 
   // Key parity: keys defined in another environment but missing here
@@ -53,7 +61,15 @@ export function ProjectDetails({ slug }: { slug: string }) {
   const close = () => setDialog(null)
 
   return (
-    <div className="space-y-6">
+    <Tabs defaultValue="secrets">
+      <TabsList>
+        <TabsTrigger value="secrets">Secrets</TabsTrigger>
+        <TabsTrigger value="members">Members</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="secrets">
+        <div className="space-y-6">
+
       <div>
         <h1 className="text-2xl font-semibold">{project.name}</h1>
         <p className="text-sm text-muted-foreground">
@@ -65,9 +81,10 @@ export function ProjectDetails({ slug }: { slug: string }) {
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-10">
             <p className="text-muted-foreground">No environments yet.</p>
-            <Button onClick={() => setDialog({ type: "add-env" })}>
-              <Plus /> Add environment
-            </Button>
+
+              <Button variant="outline" size="sm" onClick={() => setDialog({ type: "add-env" })}>
+                <Plus /> Environment
+              </Button>
           </CardContent>
         </Card>
       ) : (
@@ -82,20 +99,43 @@ export function ProjectDetails({ slug }: { slug: string }) {
                 ))}
               </TabsList>
             </Tabs>
-            <Button variant="outline" size="sm" onClick={() => setDialog({ type: "add-env" })}>
-              <Plus /> Environment
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="CLI commands"
+                title="CLI commands"
+                onClick={() => setDialog({ type: "cli" })}
+              >
+                <Terminal />
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setDialog({ type: "add-env" })}>
+                <Plus /> Environment
+              </Button>
+            </div>
           </div>
 
           <Card>
-            <CardHeader className="flex-row items-center justify-between space-y-0">
-              <div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                  <div className="flex flex-col">
                 <CardTitle className="font-mono">{env}</CardTitle>
-                <CardDescription>{secrets.length} secrets</CardDescription>
-              </div>
+                    <CardDescription>{secrets.length} secrets</CardDescription>
+                  </div>
+<div className="flex gap-2 items-center">
               <Button size="sm" onClick={() => setDialog({ type: "add-secret" })}>
                 <Plus /> Add secret
-              </Button>
+                </Button>
+                {project.my_role === "PROJECT_ADMIN" && env && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Delete environment ${env}`}
+                    onClick={() => setDialog({ type: "delete-env", environment: env })}
+                  >
+                    <Trash2 />
+                  </Button>
+                  )}
+</div>
             </CardHeader>
 
             <CardContent className="space-y-4">
@@ -191,7 +231,52 @@ export function ProjectDetails({ slug }: { slug: string }) {
       {dialog?.type === "add-env" && (
         <AddEnvironmentDialog projectId={project.id} slug={slug} onClose={close} />
       )}
-    </div>
+      {dialog?.type === "cli" && env && (
+        <CliCommandsModal
+          open
+          onOpenChange={(open) => !open && close()}
+          projectSlug={slug}
+          environment={env}
+        />
+      )}
+      {dialog?.type === "delete-env" && (
+        <DeleteEnvironmentDialog
+          projectId={project.id}
+          slug={slug}
+          environment={dialog.environment}
+          secretCount={(project.secrets[dialog.environment] ?? []).length}
+          onClose={close}
+        />
+      )}
+      {dialog?.type === "delete-project" && (
+        <DeleteProjectDialog projectId={project.id} name={project.name} onClose={close} />
+      )}
+      {project.my_role === "PROJECT_ADMIN" && (
+        <Card className="border-destructive/40">
+          <CardHeader>
+          <CardTitle className="text-destructive">Danger zone</CardTitle>
+            <CardDescription>Deleting a project removes its secrets and members.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="destructive" onClick={() => setDialog({ type: "delete-project" })}>
+              Delete project
+            </Button>
+          </CardContent>
+        </Card>
+          )}
+        </div>
+
+      </TabsContent>
+
+       <TabsContent value="members">
+         <MembersSection
+           projectId={project.id}
+           slug={slug}
+           myRole={project.my_role}
+           members={(project as { members?: Member[] }).members}
+         />
+       </TabsContent>
+     </Tabs>
   )
 }
 
