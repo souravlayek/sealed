@@ -811,6 +811,63 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/v1/projects/{projectSlug}/{environment}/secrets": {
+            "get": {
+                "description": "Get all project secrets that belongs to env.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "projects"
+                ],
+                "summary": "Get project secrets",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project Slug",
+                        "name": "projectSlug",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Environment",
+                        "name": "environment",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.EnvelopResponse-array_handlers_KeyValuePair"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.ErrResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.ErrResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.ErrResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -885,6 +942,17 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.KeyValuePair": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "value": {
                     "type": "string"
                 }
             }
@@ -1015,7 +1083,10 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
-                "secrets": {}
+                "secrets": {},
+                "slug": {
+                    "type": "string"
+                }
             }
         },
         "sqlc.ListProjectsRow": {
@@ -1038,6 +1109,20 @@ const docTemplate = `{
                 },
                 "role": {
                     "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                }
+            }
+        },
+        "utils.EnvelopResponse-array_handlers_KeyValuePair": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.KeyValuePair"
+                    }
                 }
             }
         },

@@ -220,6 +220,64 @@ func GetProjectDetails(w http.ResponseWriter, r *http.Request) {
 	utils.SendResponse(w, project, http.StatusOK)
 }
 
+type KeyValuePair struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+// @Summary		Get project secrets
+// @Description	Get all project secrets that belongs to env.
+// @Tags			projects
+// @Accept			json
+// @Produce		json
+// @Param			projectSlug	path		string	true	"Project Slug"
+// @Param			environment	path		string	true	"Environment"
+// @Success		200			{object}	utils.EnvelopResponse[[]KeyValuePair]
+// @Failure		400			{object}	utils.ErrResponse
+// @Failure		404			{object}	utils.ErrResponse
+// @Failure		401			{object}	utils.ErrResponse
+// @Router			/v1/projects/{projectSlug}/{environment}/secrets [get]
+func GetAllProjectSecretsForEnv(w http.ResponseWriter, r *http.Request) {
+	projectSlug := r.PathValue("projectSlug")
+	env := r.PathValue("environment")
+	if strings.Trim(projectSlug, " ") == "" || strings.Trim(env, " ") == "" {
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Invalid project or environment")
+		return
+	}
+	secrets, err := database.Q.ListSecretsByProjectSlugAndEnvironment(r.Context(), sqlc.ListSecretsByProjectSlugAndEnvironmentParams{
+		Slug:        projectSlug,
+		Environment: env,
+	})
+	if err != nil {
+		logger.Logger.Error(err)
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Invalid project or environment")
+		return
+	}
+	if len(secrets) == 0 {
+		utils.SendResponse(w, secrets, http.StatusOK)
+
+	}
+	projectKeys, err := database.Q.GetProjectKeyByProjectID(r.Context(), secrets[0].ProjectID)
+	if err != nil {
+		logger.Logger.Error(err)
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Invalid project or environment")
+		return
+	}
+	keyAndSecret := make([]KeyValuePair, 0)
+	for _, secret := range secrets {
+		item := KeyValuePair{}
+		item.Key = secret.KeyName
+		decryptedValue, err := encryption.DecryptSecret(r.Context(), secret.ProjectID, *secret.Nonce, projectKeys.DekWrapped, *secret.Ciphertext)
+		if err != nil {
+			utils.SendErrorMessage(w, http.StatusBadRequest, fmt.Sprintf("Found broken secret for %s", secret.KeyName))
+			return
+		}
+		item.Value = decryptedValue
+		keyAndSecret = append(keyAndSecret, item)
+	}
+	utils.SendResponse(w, keyAndSecret, http.StatusOK)
+}
+
 // @Summary		Delete project
 // @Description	Delete project.
 // @Tags			projects

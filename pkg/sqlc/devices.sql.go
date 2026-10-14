@@ -137,6 +137,31 @@ func (q *Queries) GetDeviceByDeviceCode(ctx context.Context, deviceCode *string)
 	return i, err
 }
 
+const getDeviceById = `-- name: GetDeviceById :one
+SELECT id, user_id, ed25519_pubkey, last_used_at, revoked_at, deleted_at, created_at, device_name, device_code
+FROM "devices"
+WHERE id = $1
+  AND deleted_at IS NULL
+LIMIT 1
+`
+
+func (q *Queries) GetDeviceById(ctx context.Context, id int64) (Device, error) {
+	row := q.db.QueryRow(ctx, getDeviceById, id)
+	var i Device
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Ed25519Pubkey,
+		&i.LastUsedAt,
+		&i.RevokedAt,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.DeviceName,
+		&i.DeviceCode,
+	)
+	return i, err
+}
+
 const getDeviceByPublicKey = `-- name: GetDeviceByPublicKey :one
 SELECT id, user_id, ed25519_pubkey, last_used_at, revoked_at, deleted_at, created_at, device_name, device_code
 FROM "devices"

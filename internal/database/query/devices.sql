@@ -17,6 +17,14 @@ WHERE device_code = $1
 LIMIT 1;
 
 
+-- name: GetDeviceById :one
+SELECT *
+FROM "devices"
+WHERE id = $1
+  AND deleted_at IS NULL
+LIMIT 1;
+
+
 -- name: GetDeviceByPublicKey :one
 SELECT *
 FROM "devices"

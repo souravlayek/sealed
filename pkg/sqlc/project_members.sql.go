@@ -143,7 +143,7 @@ func (q *Queries) ListProjectMembers(ctx context.Context, projectID int64) ([]Li
 
 const listUserProjects = `-- name: ListUserProjects :many
 SELECT
-    p.id, p.name, p.environments, p.deleted_at, p.created_at,
+    p.id, p.name, p.environments, p.deleted_at, p.created_at, p.slug,
     pm.role AS member_role
 FROM "project_members" pm
 JOIN "project" p
@@ -160,6 +160,7 @@ type ListUserProjectsRow struct {
 	Environments []string           `json:"environments"`
 	DeletedAt    *time.Time         `json:"deleted_at"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	Slug         string             `json:"slug"`
 	MemberRole   string             `json:"member_role"`
 }
 
@@ -178,6 +179,7 @@ func (q *Queries) ListUserProjects(ctx context.Context, userID int64) ([]ListUse
 			&i.Environments,
 			&i.DeletedAt,
 			&i.CreatedAt,
+			&i.Slug,
 			&i.MemberRole,
 		); err != nil {
 			return nil, err

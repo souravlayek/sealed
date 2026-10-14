@@ -17,7 +17,7 @@ INSERT INTO "project" (
     environments
 )
 VALUES ($1, $2)
-RETURNING id, name, environments, deleted_at, created_at
+RETURNING id, name, environments, deleted_at, created_at, slug
 `
 
 type CreateProjectParams struct {
@@ -34,6 +34,7 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (P
 		&i.Environments,
 		&i.DeletedAt,
 		&i.CreatedAt,
+		&i.Slug,
 	)
 	return i, err
 }
@@ -42,6 +43,7 @@ const getProjectByID = `-- name: GetProjectByID :one
 SELECT
   p.id,
   p.name,
+  p.slug,
   p.environments,
   p.created_at,
   me.role AS my_role,
@@ -77,6 +79,7 @@ type GetProjectByIDParams struct {
 type GetProjectByIDRow struct {
 	ID           int64              `json:"id"`
 	Name         string             `json:"name"`
+	Slug         string             `json:"slug"`
 	Environments []string           `json:"environments"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	MyRole       string             `json:"my_role"`
@@ -90,6 +93,71 @@ func (q *Queries) GetProjectByID(ctx context.Context, arg GetProjectByIDParams) 
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
+		&i.Slug,
+		&i.Environments,
+		&i.CreatedAt,
+		&i.MyRole,
+		&i.Members,
+		&i.Secrets,
+	)
+	return i, err
+}
+
+const getProjectBySlug = `-- name: GetProjectBySlug :one
+SELECT
+  p.id,
+  p.name,
+  p.slug,
+  p.environments,
+  p.created_at,
+  me.role AS my_role,
+  COALESCE((
+    SELECT json_agg(json_build_object('user_id', m.user_id, 'role', m.role))
+    FROM project_members m
+    WHERE m.project_id = p.id
+      AND m.deleted_at IS NULL
+  ), '[]'::json) AS members,
+  COALESCE((
+    SELECT json_object_agg(e.environment, e.key_names)
+    FROM (
+      SELECT s.environment, json_agg(s.key_name ORDER BY s.key_name) AS key_names
+      FROM secrets s
+      WHERE s.project_id = p.id
+      GROUP BY s.environment
+    ) e
+  ), '{}'::json) AS secrets
+FROM project p
+JOIN project_members me
+  ON me.project_id = p.id
+ AND me.user_id = $1          -- requesting user
+ AND me.deleted_at IS NULL
+WHERE p.slug = $2               -- project id
+  AND p.deleted_at IS NULL
+`
+
+type GetProjectBySlugParams struct {
+	UserID int64  `json:"user_id"`
+	Slug   string `json:"slug"`
+}
+
+type GetProjectBySlugRow struct {
+	ID           int64              `json:"id"`
+	Name         string             `json:"name"`
+	Slug         string             `json:"slug"`
+	Environments []string           `json:"environments"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	MyRole       string             `json:"my_role"`
+	Members      interface{}        `json:"members"`
+	Secrets      interface{}        `json:"secrets"`
+}
+
+func (q *Queries) GetProjectBySlug(ctx context.Context, arg GetProjectBySlugParams) (GetProjectBySlugRow, error) {
+	row := q.db.QueryRow(ctx, getProjectBySlug, arg.UserID, arg.Slug)
+	var i GetProjectBySlugRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
 		&i.Environments,
 		&i.CreatedAt,
 		&i.MyRole,
@@ -103,6 +171,7 @@ const listProjects = `-- name: ListProjects :many
 SELECT
   p.id,
   p.name,
+  p.slug,
   p.environments,
   p.created_at,
   pm.role
@@ -117,6 +186,7 @@ WHERE pm.user_id = $1          -- the user's id
 type ListProjectsRow struct {
 	ID           int64              `json:"id"`
 	Name         string             `json:"name"`
+	Slug         string             `json:"slug"`
 	Environments []string           `json:"environments"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	Role         string             `json:"role"`
@@ -134,6 +204,7 @@ func (q *Queries) ListProjects(ctx context.Context, userID int64) ([]ListProject
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
+			&i.Slug,
 			&i.Environments,
 			&i.CreatedAt,
 			&i.Role,
@@ -153,7 +224,7 @@ UPDATE "project"
 SET deleted_at = NULL
 WHERE id = $1
   AND deleted_at IS NOT NULL
-RETURNING id, name, environments, deleted_at, created_at
+RETURNING id, name, environments, deleted_at, created_at, slug
 `
 
 func (q *Queries) RestoreProject(ctx context.Context, id int64) (Project, error) {
@@ -165,6 +236,7 @@ func (q *Queries) RestoreProject(ctx context.Context, id int64) (Project, error)
 		&i.Environments,
 		&i.DeletedAt,
 		&i.CreatedAt,
+		&i.Slug,
 	)
 	return i, err
 }
@@ -174,7 +246,7 @@ UPDATE "project"
 SET deleted_at = now()
 WHERE id = $1
   AND deleted_at IS NULL
-RETURNING id, name, environments, deleted_at, created_at
+RETURNING id, name, environments, deleted_at, created_at, slug
 `
 
 func (q *Queries) SoftDeleteProject(ctx context.Context, id int64) (Project, error) {
@@ -186,6 +258,7 @@ func (q *Queries) SoftDeleteProject(ctx context.Context, id int64) (Project, err
 		&i.Environments,
 		&i.DeletedAt,
 		&i.CreatedAt,
+		&i.Slug,
 	)
 	return i, err
 }
@@ -197,7 +270,7 @@ SET
     environments = $3
 WHERE id = $1
   AND deleted_at IS NULL
-RETURNING id, name, environments, deleted_at, created_at
+RETURNING id, name, environments, deleted_at, created_at, slug
 `
 
 type UpdateProjectParams struct {
@@ -215,6 +288,7 @@ func (q *Queries) UpdateProject(ctx context.Context, arg UpdateProjectParams) (P
 		&i.Environments,
 		&i.DeletedAt,
 		&i.CreatedAt,
+		&i.Slug,
 	)
 	return i, err
 }
@@ -224,7 +298,7 @@ UPDATE "project"
 SET environments = $2
 WHERE id = $1
   AND deleted_at IS NULL
-RETURNING id, name, environments, deleted_at, created_at
+RETURNING id, name, environments, deleted_at, created_at, slug
 `
 
 type UpdateProjectEnvironmentsParams struct {
@@ -241,6 +315,7 @@ func (q *Queries) UpdateProjectEnvironments(ctx context.Context, arg UpdateProje
 		&i.Environments,
 		&i.DeletedAt,
 		&i.CreatedAt,
+		&i.Slug,
 	)
 	return i, err
 }

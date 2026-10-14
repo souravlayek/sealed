@@ -3,6 +3,7 @@ package router
 import (
 	"net/http"
 
+	"github.com/souravlayek/sealed-server/internal/api/handlers"
 	"github.com/souravlayek/sealed-server/internal/middleware"
 )
 
@@ -26,6 +27,8 @@ func CreateRoutes() *MyCustomRouter {
 	// Add your routes
 	v1Router.Handle("/auth/", http.StripPrefix("/auth", CreateAuthRoutes()))
 	protectedRoutes := middleware.CreateStack(middleware.RequireAuth)
+	v1Router.HandlerFuncWithMiddleware("GET /projects/{projectSlug}/{environment}/secrets", []middleware.Middleware{middleware.ValidateDeviceRequest}, handlers.GetAllProjectSecretsForEnv)
+
 	v1Router.Handle("/projects/", http.StripPrefix("/projects", protectedRoutes(CreateProjectsRoutes())))
 	v1Router.Handle("/device/", http.StripPrefix("/device", CreateDeviceRoutes()))
 

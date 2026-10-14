@@ -48,6 +48,13 @@ definitions:
       email:
         type: string
     type: object
+  handlers.KeyValuePair:
+    properties:
+      key:
+        type: string
+      value:
+        type: string
+    type: object
   handlers.LoginInput:
     properties:
       email:
@@ -134,6 +141,8 @@ definitions:
       name:
         type: string
       secrets: {}
+      slug:
+        type: string
     type: object
   sqlc.ListProjectsRow:
     properties:
@@ -149,6 +158,15 @@ definitions:
         type: string
       role:
         type: string
+      slug:
+        type: string
+    type: object
+  utils.EnvelopResponse-array_handlers_KeyValuePair:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/handlers.KeyValuePair'
+        type: array
     type: object
   utils.EnvelopResponse-array_sqlc_ListProjectsRow:
     properties:
@@ -711,6 +729,44 @@ paths:
       security:
       - BearerAuth: []
       summary: Delete project secret
+      tags:
+      - projects
+  /v1/projects/{projectSlug}/{environment}/secrets:
+    get:
+      consumes:
+      - application/json
+      description: Get all project secrets that belongs to env.
+      parameters:
+      - description: Project Slug
+        in: path
+        name: projectSlug
+        required: true
+        type: string
+      - description: Environment
+        in: path
+        name: environment
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.EnvelopResponse-array_handlers_KeyValuePair'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+      summary: Get project secrets
       tags:
       - projects
 schemes:

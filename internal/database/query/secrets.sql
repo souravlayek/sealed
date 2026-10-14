@@ -52,6 +52,16 @@ WHERE project_id = $1
   AND environment = $2
 ORDER BY key_name;
 
+-- name: ListSecretsByProjectSlugAndEnvironment :many
+SELECT s.*
+FROM secrets s
+JOIN project p
+  ON p.id = s.project_id
+WHERE p.slug = sqlc.arg(slug)
+  AND p.deleted_at IS NULL
+  AND s.environment = sqlc.arg(environment)
+ORDER BY s.key_name;
+
 
 -- name: UpdateSecret :one
 UPDATE "secrets"

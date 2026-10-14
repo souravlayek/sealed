@@ -7,6 +7,24 @@ INSERT INTO "project_keys" (
 VALUES ($1, $2, $3)
 RETURNING *;
 
+-- name: GetProjectKeyByProjectID :one
+SELECT
+  pk.project_id,
+  pk.dek_wrapped,
+  pk.kek_version,
+  pk.deleted_at,
+  pk.created_at,
+  p.name,
+  p.environments
+FROM project_keys pk
+JOIN project p
+  ON p.id = pk.project_id
+ AND p.deleted_at IS NULL
+JOIN project_members pm
+  ON pm.project_id = pk.project_id
+ AND pm.deleted_at IS NULL
+WHERE pk.project_id = $1       -- project id
+  AND pk.deleted_at IS NULL;
 
 -- name: GetProjectKey :one
 SELECT

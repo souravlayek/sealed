@@ -51,6 +51,7 @@ type Project struct {
 	Environments []string           `json:"environments"`
 	DeletedAt    *time.Time         `json:"deleted_at"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	Slug         string             `json:"slug"`
 }
 
 type ProjectInvite struct {

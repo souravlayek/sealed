@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/x509"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -12,6 +15,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
+	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/99designs/keyring"
@@ -35,63 +42,211 @@ func main() {
 	cliArgs := os.Args[1:]
 	primaryCommand := cliArgs[0]
 	if primaryCommand == "login" {
-		privateKey, err := getOrCreatePrivateKeyFromKeyring()
+		handeCliLogin()
+	} else if primaryCommand == "load" {
+		loadArguments := cliArgs[1:]
+		if len(loadArguments) < 2 {
+			printCommandHelp("load")
+			log.Fatal("Invalid command")
+			return
+		}
+		projectSlug := loadArguments[0]
+		environment := loadArguments[1]
+		result := createSignedHttpLoadRequest(projectSlug, environment)
+		setEnvVariables(result)
+	} else if primaryCommand == "run" {
+		loadArguments := cliArgs[1:]
+		if len(loadArguments) < 2 {
+			printCommandHelp("load")
+			log.Fatal("Invalid command")
+			return
+		}
+		projectSlug := loadArguments[0]
+		environment := loadArguments[1]
+		result := createSignedHttpLoadRequest(projectSlug, environment)
+		idx := slices.Index(os.Args, "--")
+		if idx == -1 || idx == len(os.Args)-1 {
+			log.Fatal("usage: yourcli run ... -- <command> [args...]")
+		}
+		cmdArgs := os.Args[idx+1:]
+		err := runWithSecrets(result, cmdArgs[0], cmdArgs[1:]...)
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			os.Exit(exitErr.ExitCode())
+		}
 		if err != nil {
 			log.Fatal(err)
 		}
-		publicKey := privateKey.Public()
-		deviceName, err := os.Hostname()
-		if err != nil {
-			log.Fatal(err)
-		}
-		payload := DeviceAPIPayload{
-			PublicKey:  publicKey.(ed25519.PublicKey),
-			DeviceName: deviceName,
-		}
-		jsonifyPayload, _ := json.Marshal(payload)
-		buf := bytes.NewBuffer(jsonifyPayload)
-		resp, err := http.Post("http://localhost:8080/api/v1/device/code", "application/json", buf)
-		if err != nil {
-			log.Fatalf("An Error Occured %v", err)
-		}
-		type DeviceCodeAPIResponse struct {
-			DeviceCode      string `json:"device_code"`
-			UserCode        string `json:"user_code"`
-			VerificationURL string `json:"verification_url"`
-		}
-		var result EnvelopReponse[DeviceCodeAPIResponse]
-		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-			log.Fatal(err)
-		}
-		// fmt.Println(result)
-
-		fmt.Printf("Click the below url for login \n %v \n And use this code: %v \n [DEBUG] Device-code: %v \n ", result.Data.VerificationURL, result.Data.UserCode, result.Data.DeviceCode)
-
-		// Wait for response
-		interval := 4.0
-		deviceCode := result.Data.DeviceCode
-		pollRes := pollForTokenResponse(deviceCode)
-		fmt.Println("Waiting for your authentication...")
-		for true {
-			if pollRes.Status == "slow_down" {
-				interval *= 1.5
-			} else if pollRes.Status == "access_denied" {
-				log.Fatal("Unable to login")
-				return
-			} else if pollRes.Status == "expired_token" {
-				log.Fatal("Your token expired")
-				return
-			} else if pollRes.Status == "done" {
-				break
-			}
-			time.Sleep(time.Duration(interval) * time.Second)
-			pollRes = pollForTokenResponse(deviceCode)
-		}
-		updateKeyringToUseEmailAndDeviceID(pollRes.Data.Email, pollRes.Data.DeviceID)
-		fmt.Println("\n Login successful as ", pollRes.Data.Email)
 	} else {
 		printHelp()
 	}
+}
+
+func createSignedHttpLoadRequest(projectSlug string, env string) []KeyValuePair {
+	ring, err := keyring.Open(keyring.Config{
+		ServiceName: SERVICE,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	keyringItem, found := getFromKeyring(ring)
+	if !found {
+		log.Fatal("Unable to find key try `sealed login` first")
+	}
+	privatekey, err := parsePrivateKey(string(keyringItem.Data))
+	if err != nil {
+		log.Fatal(err)
+	}
+	splittedLabel := strings.Split(keyringItem.Label, "|")
+	if len(splittedLabel) != 2 {
+		log.Fatal("Invalid key try `sealed login` first")
+	}
+	deviceId := splittedLabel[1]
+	timestamp := time.Now().Unix()
+	nonce := getNonce()
+	pathWithQuery := fmt.Sprintf("/projects/%s/%s/secrets", projectSlug, env)
+	requestURL := fmt.Sprintf("http://localhost:8080/api/v1%s", pathWithQuery)
+	req, err := http.NewRequest(http.MethodGet, requestURL, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	createRequestSignature(req, SignaturePayload{
+		Method:        "GET",
+		PathWithQuery: pathWithQuery,
+		Nonce:         nonce,
+		Timestamp:     timestamp,
+		Body:          "",
+		DeviceID:      deviceId,
+	}, privatekey)
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var result EnvelopReponse[[]KeyValuePair]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		log.Fatal(err)
+	}
+	return result.Data
+}
+
+type KeyValuePair struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+func setEnvVariables(pairs []KeyValuePair) {
+	for _, kv := range pairs {
+		fmt.Printf("export %s='%s'\n", kv.Key, kv.Value)
+	}
+}
+
+func runWithSecrets(pairs []KeyValuePair, name string, args ...string) error {
+	env := os.Environ()
+	for _, kv := range pairs {
+		env = append(env, kv.Key+"="+kv.Value)
+	}
+
+	cmd := exec.Command(name, args...)
+	cmd.Env = env
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+type SignaturePayload struct {
+	Method        string
+	PathWithQuery string
+	Timestamp     int64
+	Nonce         string
+	DeviceID      string
+	Body          string
+}
+
+func createRequestSignature(req *http.Request, payload SignaturePayload, privateKey ed25519.PrivateKey) {
+	hash := sha256.Sum256([]byte(payload.Body))
+	hashedBody := hex.EncodeToString(hash[:])
+	canonicalString := fmt.Sprintf("%s\n%s\n%s\n%s\n%s", payload.Method, payload.PathWithQuery, payload.Timestamp, payload.Nonce, hashedBody)
+	signature := ed25519.Sign(privateKey, []byte(canonicalString))
+	req.Header.Add("Accept", "application/json")
+	req.Header.Set("X-Sealed-Device", payload.DeviceID)
+	req.Header.Set("X-Sealed-Timestamp", strconv.Itoa(int(payload.Timestamp)))
+	req.Header.Set("X-Sealed-Nonce", payload.Nonce)
+	req.Header.Set("X-Sealed-Signature", base64.StdEncoding.EncodeToString(signature))
+
+}
+
+func getNonce() string {
+	bytes := make([]byte, 16)
+	if _, err := rand.Read(bytes); err != nil {
+		log.Fatal(err)
+	}
+	return base64.RawURLEncoding.EncodeToString(bytes)
+}
+
+func handeCliLogin() {
+	privateKey, err := getOrCreatePrivateKeyFromKeyring()
+	if err != nil {
+		log.Fatal(err)
+	}
+	publicKey := privateKey.Public()
+	deviceName, err := os.Hostname()
+	if err != nil {
+		log.Fatal(err)
+	}
+	pubKeyPem, err := convertPublicKeyToPem(publicKey.(ed25519.PublicKey))
+	if err != nil {
+		log.Fatal(err)
+	}
+	payload := DeviceAPIPayload{
+		PublicKey:  pubKeyPem,
+		DeviceName: deviceName,
+	}
+	jsonifyPayload, _ := json.Marshal(payload)
+	buf := bytes.NewBuffer(jsonifyPayload)
+	resp, err := http.Post("http://localhost:8080/api/v1/device/code", "application/json", buf)
+	if err != nil {
+		log.Fatalf("An Error Occured %v", err)
+	}
+	type DeviceCodeAPIResponse struct {
+		DeviceCode      string `json:"device_code"`
+		UserCode        string `json:"user_code"`
+		VerificationURL string `json:"verification_url"`
+	}
+	var result EnvelopReponse[DeviceCodeAPIResponse]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		log.Fatal(err)
+	}
+	// fmt.Println(result)
+
+	fmt.Printf("Click the below url for login \n %v \n And use this code: %v \n [DEBUG] Device-code: %v \n ", result.Data.VerificationURL, result.Data.UserCode, result.Data.DeviceCode)
+
+	// Wait for response
+	interval := 4.0
+	deviceCode := result.Data.DeviceCode
+	pollRes := pollForTokenResponse(deviceCode)
+	fmt.Println("Waiting for your authentication...")
+	for true {
+		if pollRes.Status == "slow_down" {
+			interval *= 1.5
+		} else if pollRes.Status == "access_denied" {
+			log.Fatal("Unable to login")
+			return
+		} else if pollRes.Status == "expired_token" {
+			log.Fatal("Your token expired")
+			return
+		} else if pollRes.Status == "done" {
+			break
+		}
+		time.Sleep(time.Duration(interval) * time.Second)
+		pollRes = pollForTokenResponse(deviceCode)
+	}
+	updateKeyringToUseEmailAndDeviceID(pollRes.Data.Email, pollRes.Data.DeviceID)
+	fmt.Println("\n Login successful as ", pollRes.Data.Email)
 }
 
 type PollingSuccessData struct {

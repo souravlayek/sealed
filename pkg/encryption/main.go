@@ -13,8 +13,11 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	openbao "github.com/openbao/openbao/api/v2"
+	"github.com/souravlayek/sealed-server/internal/database"
+	"github.com/souravlayek/sealed-server/pkg/logger"
 )
 
 func create_dek() (string, error) {
@@ -68,6 +71,12 @@ func create_wrapped_dek(ctx context.Context, project_id int64) (string, error) {
 }
 
 func get_unwrapped_dek(ctx context.Context, ciphertext string, project_id int64) (string, error) {
+	cacheKey := fmt.Sprintf("project-dek-%d", project_id)
+	cachedDek, found := database.Cache.Get(cacheKey)
+	if found {
+		logger.Logger.Infof("Using cached dek for %d", project_id)
+		return cachedDek.(string), nil
+	}
 	client, err := get_open_bao()
 	if err != nil {
 		return "", err
@@ -93,7 +102,7 @@ func get_unwrapped_dek(ctx context.Context, ciphertext string, project_id int64)
 	if err != nil {
 		return "", err
 	}
-
+	database.Cache.Set(cacheKey, string(decodedBytes), 20*time.Minute)
 	return string(decodedBytes), nil
 }
 
@@ -192,6 +201,5 @@ func DecryptSecret(ctx context.Context, project_id int64, nonce string, dek stri
 	if err != nil {
 		return "", fmt.Errorf("decryption failed (tag mismatch or corrupted data): %w", err)
 	}
-	fmt.Println("HEre")
 	return string(plaintext), nil
 }

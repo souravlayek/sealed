@@ -268,6 +268,53 @@ func (q *Queries) ListSecretsByProject(ctx context.Context, projectID int64) ([]
 	return items, nil
 }
 
+const listSecretsByProjectSlugAndEnvironment = `-- name: ListSecretsByProjectSlugAndEnvironment :many
+SELECT s.id, s.project_id, s.environment, s.key_name, s.ciphertext, s.nonce, s.kek_version, s.value_changed_at, s.rotation_days, s.created_at
+FROM secrets s
+JOIN project p
+  ON p.id = s.project_id
+WHERE p.slug = $1
+  AND p.deleted_at IS NULL
+  AND s.environment = $2
+ORDER BY s.key_name
+`
+
+type ListSecretsByProjectSlugAndEnvironmentParams struct {
+	Slug        string `json:"slug"`
+	Environment string `json:"environment"`
+}
+
+func (q *Queries) ListSecretsByProjectSlugAndEnvironment(ctx context.Context, arg ListSecretsByProjectSlugAndEnvironmentParams) ([]Secret, error) {
+	rows, err := q.db.Query(ctx, listSecretsByProjectSlugAndEnvironment, arg.Slug, arg.Environment)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Secret{}
+	for rows.Next() {
+		var i Secret
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Environment,
+			&i.KeyName,
+			&i.Ciphertext,
+			&i.Nonce,
+			&i.KekVersion,
+			&i.ValueChangedAt,
+			&i.RotationDays,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateSecret = `-- name: UpdateSecret :one
 UPDATE "secrets"
 SET

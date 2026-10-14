@@ -92,6 +92,51 @@ func (q *Queries) GetProjectKey(ctx context.Context, arg GetProjectKeyParams) (G
 	return i, err
 }
 
+const getProjectKeyByProjectID = `-- name: GetProjectKeyByProjectID :one
+SELECT
+  pk.project_id,
+  pk.dek_wrapped,
+  pk.kek_version,
+  pk.deleted_at,
+  pk.created_at,
+  p.name,
+  p.environments
+FROM project_keys pk
+JOIN project p
+  ON p.id = pk.project_id
+ AND p.deleted_at IS NULL
+JOIN project_members pm
+  ON pm.project_id = pk.project_id
+ AND pm.deleted_at IS NULL
+WHERE pk.project_id = $1       -- project id
+  AND pk.deleted_at IS NULL
+`
+
+type GetProjectKeyByProjectIDRow struct {
+	ProjectID    int64              `json:"project_id"`
+	DekWrapped   string             `json:"dek_wrapped"`
+	KekVersion   string             `json:"kek_version"`
+	DeletedAt    *time.Time         `json:"deleted_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	Name         string             `json:"name"`
+	Environments []string           `json:"environments"`
+}
+
+func (q *Queries) GetProjectKeyByProjectID(ctx context.Context, projectID int64) (GetProjectKeyByProjectIDRow, error) {
+	row := q.db.QueryRow(ctx, getProjectKeyByProjectID, projectID)
+	var i GetProjectKeyByProjectIDRow
+	err := row.Scan(
+		&i.ProjectID,
+		&i.DekWrapped,
+		&i.KekVersion,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.Name,
+		&i.Environments,
+	)
+	return i, err
+}
+
 const restoreProjectKey = `-- name: RestoreProjectKey :one
 UPDATE "project_keys"
 SET deleted_at = NULL
