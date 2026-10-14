@@ -69,7 +69,7 @@ func CreateDeviceCode(w http.ResponseWriter, r *http.Request) {
 	response := DeviceCodeAPIResponse{
 		DeviceCode:      deviceCode,
 		UserCode:        userCode,
-		VerificationURL: fmt.Sprintf("%s/verify?code=%s", os.Getenv("FE_HOSTNAME"), deviceCode),
+		VerificationURL: fmt.Sprintf("%s/device?device_code=%s", os.Getenv("FE_HOSTNAME"), deviceCode),
 	}
 	utils.SendResponse(w, response, http.StatusOK)
 }
