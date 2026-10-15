@@ -22,7 +22,9 @@ func CreateStack(middleware ...Middleware) Middleware {
 }
 
 var allowedOrigins = map[string]bool{
-	"http://localhost:5173": true,
+	"http://localhost:5173":              true,
+	"https://sealed.souravlayek.com":     true,
+	"https://api-sealed.souravlayek.com": true,
 }
 
 // CORSMiddleware handles all preflight OPTIONS requests globally
