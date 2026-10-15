@@ -47,7 +47,7 @@ type DeviceCodeAPIResponse struct {
 func GetLoginInformation(payload DeviceAPIPayload) (*EnvelopReponse[DeviceCodeAPIResponse], error) {
 	jsonifyPayload, _ := json.Marshal(payload)
 	buf := bytes.NewBuffer(jsonifyPayload)
-	resp, err := http.Post("http://localhost:8080/api/v1/device/code", "application/json", buf)
+	resp, err := http.Post("https://api-sealed.souravlayek.com/api/v1/device/code", "application/json", buf)
 	if err != nil {
 		return nil, fmt.Errorf("An Error Occured %v", err)
 	}
@@ -77,7 +77,7 @@ func CreateSignedHttpLoadRequest(projectSlug string, env string) []KeyValuePair 
 	timestamp := time.Now().Unix()
 	nonce := utils.GetNonce()
 	pathWithQuery := fmt.Sprintf("/projects/%s/%s/secrets", projectSlug, env)
-	requestURL := fmt.Sprintf("http://localhost:8080/api/v1%s", pathWithQuery)
+	requestURL := fmt.Sprintf("https://api-sealed.souravlayek.com/api/v1%s", pathWithQuery)
 	req, err := http.NewRequest(http.MethodGet, requestURL, nil)
 	if err != nil {
 		log.Fatal(err)

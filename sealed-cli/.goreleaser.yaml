@@ -7,14 +7,29 @@ before:
     - go mod tidy
 
 builds:
-  - id: sealed
+  - id: sealed-darwin
+    main: .
+    binary: sealed
+    env:
+      - CGO_ENABLED=1
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.ShortCommit}}
+      - -X main.date={{.Date}}
+      - -X main.defaultServerURL=https://api-sealed.souravlayek.com
+  - id: sealed-other
     main: .
     binary: sealed
     env:
       - CGO_ENABLED=0
     goos:
       - linux
-      - darwin
       - windows
     goarch:
       - amd64
@@ -27,10 +42,18 @@ builds:
       - -X main.version={{.Version}}
       - -X main.commit={{.ShortCommit}}
       - -X main.date={{.Date}}
-      - -X main.defaultServerURL=https://api.sealed.example.com
+      - -X main.defaultServerURL=https://api-sealed.souravlayek.com
 
 archives:
-  - id: default
+  - id: darwin
+    ids:
+      - sealed-darwin
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+  - id: other
+    ids:
+      - sealed-other
     formats: [tar.gz]
     format_overrides:
       - goos: windows
@@ -55,12 +78,14 @@ release:
 
 homebrew_casks:
   - name: sealed
+    ids:
+      - darwin
     repository:
       owner: souravlayek
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     directory: Casks
-    homepage: "https://sealed.example.com"
+    homepage: "https://sealed.souravlayek.com"
     description: "Secrets manager for developers"
     license: "MIT"
     binaries:

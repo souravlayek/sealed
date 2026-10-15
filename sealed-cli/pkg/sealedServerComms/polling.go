@@ -22,7 +22,7 @@ func PollForTokenResponse(deviceCode string) (PollingReponse, error) {
 	}
 	jsonifyPayload, err := json.Marshal(payload)
 	buf := bytes.NewBuffer(jsonifyPayload)
-	resp, err := http.Post("http://localhost:8080/api/v1/device/token", "application/json", buf)
+	resp, err := http.Post("https://api-sealed.souravlayek.com/api/v1/device/token", "application/json", buf)
 	if err != nil {
 		return PollingReponse{}, err
 	}

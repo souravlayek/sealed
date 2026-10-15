@@ -16,9 +16,15 @@ import (
 func main() {
 	cliArgs := os.Args[1:]
 	primaryCommand := cliArgs[0]
+	if primaryCommand == "version" {
+		utils.RunVersion()
+		return
+	}
 	if primaryCommand == "login" {
 		loginmanager.Login()
-	} else if primaryCommand == "load" {
+		return
+	}
+	if primaryCommand == "load" {
 		loadArguments := cliArgs[1:]
 		if len(loadArguments) < 2 {
 			utils.PrintCommandHelp("load")
@@ -29,7 +35,9 @@ func main() {
 		environment := loadArguments[1]
 		result := sealedservercomms.CreateSignedHttpLoadRequest(projectSlug, environment)
 		secretsmanager.SetEnvVariables(result)
-	} else if primaryCommand == "run" {
+		return
+	}
+	if primaryCommand == "run" {
 		loadArguments := cliArgs[1:]
 		if len(loadArguments) < 2 {
 			utils.PrintCommandHelp("load")
@@ -52,7 +60,8 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-	} else {
-		utils.PrintHelp()
+		return
 	}
+	utils.PrintHelp()
+
 }
