@@ -1,0 +1,7 @@
+# sealed-server/.dockerignore
+.env
+.env.*
+bin/
+tmp/
+*.log
+.git

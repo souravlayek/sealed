@@ -1,13 +1,16 @@
 package utils
 
 import (
+	"log"
+	"os"
+
 	"github.com/joho/godotenv"
 	"github.com/souravlayek/sealed-server/pkg/logger"
 )
 
 func LoadEnv() error {
-	err := godotenv.Load(".env")
-	if err != nil {
+	if err := godotenv.Load(".env"); err != nil && !os.IsNotExist(err) {
+		log.Println("Unable to load env", err)
 		return err
 	}
 

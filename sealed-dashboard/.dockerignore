@@ -1,0 +1,6 @@
+# sealed-dashboard/.dockerignore
+node_modules
+dist
+.env
+.env.*
+.git

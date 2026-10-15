@@ -1,0 +1,67 @@
+version: 2
+
+project_name: sealed
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: sealed
+    main: .
+    binary: sealed
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.ShortCommit}}
+      - -X main.date={{.Date}}
+      - -X main.defaultServerURL=https://api.sealed.example.com
+
+archives:
+  - id: default
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+release:
+  github:
+    owner: souravlayek
+    name: sealed
+  name_template: "sealed-cli {{ .Version }}"
+
+homebrew_casks:
+  - name: sealed
+    repository:
+      owner: souravlayek
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Casks
+    homepage: "https://sealed.example.com"
+    description: "Secrets manager for developers"
+    license: "MIT"
+    binaries:
+      - sealed
