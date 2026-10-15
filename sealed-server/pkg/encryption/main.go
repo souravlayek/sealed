@@ -30,7 +30,7 @@ func create_dek() (string, error) {
 
 const (
 	TRANSIT_PATH = "transit"
-	KEK_KEY_NAME = "my-kek"
+	KEK_KEY_NAME = "sealed-kek"
 )
 
 // GenerateDeviceCode creates a secure, human-readable user code (e.g., ABCD-EFGH)
