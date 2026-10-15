@@ -1,6 +1,5 @@
 import { ProjectDetails } from '@/components/projects/project-details'
-import { getProjectDetails } from '@/service/project_service'
-import { createFileRoute, useLoaderData } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 
 export const Route = createFileRoute(
   '/_authenticated/projects/$projectSlug',

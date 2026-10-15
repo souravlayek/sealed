@@ -1,5 +1,5 @@
 // src/components/projects/cli-commands-modal.tsx
-import { Copy, Terminal } from "lucide-react"
+import { Copy} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,

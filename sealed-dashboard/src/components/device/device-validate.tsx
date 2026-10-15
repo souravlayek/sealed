@@ -16,13 +16,6 @@ import {
 import { validateDevice } from "@/service/device_service"
 
 const CODE_LENGTH = 8
-const CODE_RE = /^[A-Z0-9]{4}-[A-Z0-9]{4}$/
-
-// Keeps letters and digits, uppercases them, and formats as ABCD-1234
-function formatCode(raw: string) {
-  const compact = raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, CODE_LENGTH)
-  return compact.length > 4 ? `${compact.slice(0, 4)}-${compact.slice(4)}` : compact
-}
 
 export function DeviceValidate({
   initialDeviceCode,

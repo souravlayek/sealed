@@ -30,7 +30,7 @@ export function Landing() {
           Sealed
         </div>
         <nav className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" render={<Link to="/login" />}>
+          <Button variant="ghost" size="sm" render={<Link to="/login" search={{redirect: "/dashboard"}} />}>
             Sign in
           </Button>
           <Button size="sm" render={<Link to="/signup" />}>

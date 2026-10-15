@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { getUserDetails, loginUser, type UserResponse } from './service/auth_service'
-import { redirect } from '@tanstack/react-router'
 
 interface AuthState {
   isAuthenticated: boolean

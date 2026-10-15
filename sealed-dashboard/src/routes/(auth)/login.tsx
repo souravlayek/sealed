@@ -36,7 +36,7 @@ function LoginPage() {
     setError(undefined)
     try {
       await auth.login(email, password)
-      navigate({ to: target })
+      navigate({ to: target, search: {redirect: ""} })
     } catch (err) {
       setError(
         (isAxiosError(err) && err.response?.data?.message) ||

@@ -1,12 +1,11 @@
 // src/components/device/device-route-error.tsx
-import { Link, useRouter } from "@tanstack/react-router"
+import { Link, type ErrorRouteComponent } from "@tanstack/react-router"
 import { AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
-export function DeviceRouteError({ error  }: { error: Error;  }) {
-  const router = useRouter()
-  const isMissingCode = error.name === "ZodError" || /device_code/i.test(error.message)
+export const DeviceRouteError:ErrorRouteComponent =  ({error}) => {
+  const isMissingCode = (error as Error).name === "ZodError" || /device_code/i.test((error as Error).message)
 
   return (
     <div className="flex min-h-[60svh] items-center justify-center p-6">

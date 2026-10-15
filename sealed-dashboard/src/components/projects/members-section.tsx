@@ -1,6 +1,6 @@
 // src/components/projects/members-section.tsx
 import { useState, type FormEvent } from "react"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation} from "@tanstack/react-query"
 import { isAxiosError } from "axios"
 import { CheckCircle2 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
