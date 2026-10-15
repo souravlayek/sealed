@@ -1,5 +1,6 @@
 // src/components/projects/cli-commands-modal.tsx
-import { Copy} from "lucide-react"
+import { Link } from "@tanstack/react-router"
+import { BookOpen, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -33,7 +34,7 @@ export function CliCommandsModal({ open, onOpenChange, projectSlug, environment 
     keys: [],
     allowMissing: false,
     shell: "zsh",
-    runCommand: "<command>",
+    runCommand: "npm start",
   })
 
   return (
@@ -45,6 +46,14 @@ export function CliCommandsModal({ open, onOpenChange, projectSlug, environment 
             <span className="font-mono">{projectSlug}</span> ·{" "}
             <span className="font-mono">{environment}</span>
           </DialogDescription>
+          <Link
+            to="/docs"
+            onClick={() => onOpenChange(false)}
+            className="inline-flex w-fit items-center gap-1.5 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          >
+            <BookOpen className="size-3.5" />
+            Not installed yet? See install steps in the docs
+          </Link>
         </DialogHeader>
 
         <CommandBlock
@@ -54,7 +63,7 @@ export function CliCommandsModal({ open, onOpenChange, projectSlug, environment 
         />
         <CommandBlock
           label="Run a single command"
-          hint="Injects the secrets into one process without printing them."
+          hint="Injects the secrets into one process without printing them. Replace npm start with your command."
           command={run}
         />
       </DialogContent>

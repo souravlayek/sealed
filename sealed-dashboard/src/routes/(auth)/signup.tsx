@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { registerUser } from "@/service/auth_service"
+import { wait } from "@/lib/utils"
 
 export const Route = createFileRoute("/(auth)/signup")({
   beforeLoad: ({ context }) => {
@@ -39,6 +40,7 @@ function SignupPage() {
     try {
       await registerUser({ name: name.trim(), email: email.trim().toLowerCase(), password })
       await auth.login(email.trim().toLowerCase(), password)
+      await wait(500)
       navigate({ to: "/dashboard" })
     } catch (err) {
       setError(

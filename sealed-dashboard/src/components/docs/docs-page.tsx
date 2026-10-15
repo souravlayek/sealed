@@ -19,6 +19,7 @@ import {
 import { getAllProjects } from "@/service/project_service"
 import { queryKeys } from "@/lib/query-keys"
 import { buildCommand, type CommandId } from "./command-builder"
+import { InstallSection } from "./install-section"
 
 const COMMANDS: Record<CommandId, { title: string; summary: string; detail: string }> = {
   login: {
@@ -96,7 +97,7 @@ export function DocsPage() {
           Pick a project and environment, then copy the command.
         </p>
       </div>
-
+<InstallSection />
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Target</CardTitle>

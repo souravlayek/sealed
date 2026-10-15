@@ -22,18 +22,33 @@ Individual developers working with a small group of collaborators on a project. 
 
 ### Components
 
-| Component | Folder | Purpose |
+| Component | Repository | Purpose |
 |---|---|---|
-| CLI | `sealed-cli/` | Login, load, and run secrets from the terminal |
-| API server | `sealed-server/` | Authentication, secret storage, access control, audit |
-| Dashboard | `sealed-dashboard/` | Manage projects, secrets, members, and devices in a browser |
+| CLI | [sealed-cli](https://github.com/souravlayek/sealed-cli) | Login, load, and run secrets from the terminal |
+| API server | `sealed-server/` in this repo | Authentication, secret storage, access control, audit |
+| Dashboard | `sealed-dashboard/` in this repo | Manage projects, secrets, members, and devices in a browser |
 
 ### Quick start
 
+Install the CLI (see the [CLI installation guide](https://github.com/souravlayek/sealed-cli#install) for details):
+
 ```bash
-# Install the CLI
+# macOS (Homebrew)
 brew install --cask souravlayek/tap/sealed
 
+# Any platform with Go 1.22+
+go install github.com/souravlayek/sealed-cli@latest
+```
+
+On macOS, if the first run is blocked, clear the quarantine flag once:
+
+```bash
+xattr -d com.apple.quarantine "$(which sealed)"
+```
+
+Then use it:
+
+```bash
 # Sign in this machine
 sealed login
 
@@ -46,8 +61,6 @@ sealed run payments-api dev -- npm start
 
 Create projects, add secrets, and invite collaborators from the dashboard.
 
-To build the CLI from source instead, you can run `go install github.com/souravlayek/sealed/sealed-cli/cmd/sealed@latest`.
-
 ### Running the stack locally
 
 ```bash
@@ -55,8 +68,10 @@ cp .env.example .env     # fill in real values, never commit .env
 docker compose up -d --build
 ```
 
-- Dashboard: http://localhost:3000
-- API: http://localhost:8080/api
+- Dashboard: http://localhost:3004
+- API: http://localhost:8081/api
+
+Full deployment steps, including OpenBao and the shared `sealed-net` network, are in [`deploy/`](./deploy/README.md).
 
 ---
 
@@ -115,6 +130,7 @@ flowchart TD
 - Each project gets its own DEK, stored in `project_keys` wrapped by the KEK.
 - Each secret write uses a fresh 96-bit nonce.
 - The AAD for each secret is `project_id | environment | key_name`, so a ciphertext copied to another row fails to decrypt.
+- Transit calls send a per-project `context` (derived keys), which binds each wrap to its project.
 - KEK rotation rewraps the DEKs and leaves ciphertexts untouched. The AAD excludes the KEK version for that reason.
 
 ### Device authentication
@@ -278,6 +294,7 @@ Invites don't grant access until accepted. Admins can see and revoke pending inv
 |---|---|
 | Decryption or integrity check fails on load | Whole response aborts with 500. No partial values. |
 | OpenBao unreachable | Reads that need a DEK fail. Cached DEKs serve briefly. |
+| OpenBao sealed (after restart) | All encrypt, decrypt, and rewrap calls fail until it's unsealed. |
 | Device revoked | Next signed request fails. Values already on the machine remain, so rotate them at the provider. |
 | Signature or timestamp invalid | Rejected before any database access. |
 | Missing keys in environment | Exit code 3, or 0 with `--allow-missing`. |
@@ -296,18 +313,22 @@ Invites don't grant access until accepted. Admins can see and revoke pending inv
 
 ```
 sealed/
-├── sealed-cli/         Go module, CLI entry point in cmd/sealed
 ├── sealed-server/      Go module, API server (sqlc, swagger)
 ├── sealed-dashboard/   React + Vite + shadcn/ui
+├── deploy/             Deployment guides (OpenBao, sealed stack)
 ├── docker-compose.yml
 └── .env.example
+
+sealed-cli/ (separate repo: github.com/souravlayek/sealed-cli)
+├── cmd/sealed/         CLI entry point
+└── .goreleaser.yaml    Release configuration
 ```
 
 ### Development
 
 - **Server:** `cd sealed-server && go run ./cmd/server`. Regenerate queries with `sqlc generate` and docs with `swag init`.
-- **CLI:** `cd sealed-cli && go run ./cmd/sealed`. Release with GoReleaser from a `sealed-cli/v*` tag.
 - **Dashboard:** `cd sealed-dashboard && npm install && npm run dev`.
+- **CLI:** develop in the [sealed-cli](https://github.com/souravlayek/sealed-cli) repo. Run `go run . --help` there, and release with GoReleaser from a `v*` tag.
 
 ---
 
