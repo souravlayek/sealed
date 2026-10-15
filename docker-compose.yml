@@ -5,10 +5,16 @@ services:
       context: ./sealed-server
     env_file:
       - .env
+    environment:
+      SSL_CERT_FILE: /certs/ca-bundle.pem
+    volumes:
+      - ./sealed-ca-bundle.pem:/certs/ca-bundle.pem:ro
     extra_hosts:
         - "host.docker.internal:host-gateway"
     ports:
-      - "8080:8080"
+      - "8081:8080"
+    networks:
+      - sealed-net
     restart: unless-stopped
 
   dashboard:
@@ -17,7 +23,13 @@ services:
       args:
         VITE_SERVER_URL: ${VITE_SERVER_URL}
     ports:
-      - "3000:80"
+      - "3004:80"
     depends_on:
       - server
+    networks:
+      - sealed-net
     restart: unless-stopped
+
+networks:
+  sealed-net:
+    external: true
