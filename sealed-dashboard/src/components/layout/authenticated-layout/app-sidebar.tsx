@@ -25,7 +25,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { ChevronsUpDown, Lock, LogOut, Plus, Settings } from "lucide-react"
+import { ChevronsUpDown, LogOut, Plus, Settings } from "lucide-react"
 import { useAuth } from "@/auth"
 import { getAllProjects } from "@/service/project_service"
 import { getUserDetails } from "@/service/auth_service"
