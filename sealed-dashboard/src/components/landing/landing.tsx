@@ -1,7 +1,8 @@
 // src/components/landing/landing.tsx
 import { Link } from "@tanstack/react-router"
-import { Lock, Terminal, ShieldCheck, Ban } from "lucide-react"
+import { Terminal, ShieldCheck, Ban } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import Logo from "../logo"
 
 const features = [
   {
@@ -26,7 +27,7 @@ export function Landing() {
     <div className="min-h-svh bg-background text-foreground">
       <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-6">
         <div className="flex items-center gap-2 font-semibold tracking-tight">
-          <Lock className="size-4" />
+          <Logo className="size-5" />
           Sealed
         </div>
         <nav className="flex items-center gap-3">
