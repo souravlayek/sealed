@@ -287,7 +287,7 @@ export function DeleteProjectDialog({
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: queryKeys.projects })
       onClose()
-      navigate({ to: "/" }) // change to your dashboard route
+      navigate({ to: "/dashboard" }) // change to your dashboard route
     },
   })
 

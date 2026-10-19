@@ -1,7 +1,8 @@
 // src/components/auth/auth-shell.tsx
 import type { PropsWithChildren } from "react"
-import { Lock } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import Logo from "../logo";
+import { Link } from "@tanstack/react-router";
 
 export function AuthShell({
   title,
@@ -12,9 +13,11 @@ export function AuthShell({
     <div className="flex min-h-svh items-center justify-center bg-muted/40 p-4">
       <div className="w-full max-w-sm space-y-6">
         <div className="flex flex-col items-center gap-3 text-center">
-          <div className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Lock className="size-5" />
-          </div>
+          <Link to="/">
+          <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary-foreground">
+            <Logo className="size-6" />
+            </div>
+          </Link>
           <div>
             <h1 className="text-xl font-semibold tracking-tight">Sealed</h1>
           </div>

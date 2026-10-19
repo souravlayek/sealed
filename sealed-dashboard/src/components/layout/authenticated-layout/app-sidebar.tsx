@@ -32,6 +32,7 @@ import { getUserDetails } from "@/service/auth_service"
 import { queryKeys } from "@/lib/query-keys"
 import { CreateProjectDialog } from "@/components/projects/create-project-dialog"
 import { BookOpen } from "lucide-react"
+import Logo from "@/components/logo"
 
 export function AppSidebar() {
   const auth = useAuth()
@@ -67,8 +68,8 @@ export function AppSidebar() {
       <Link to="/dashboard">
       <SidebarHeader>
         <div className="flex items-center gap-3 px-2 py-2">
-          <div className="flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Lock className="size-4" />
+          <div className="flex size-9 items-center justify-center rounded-md bg-primary/10 text-primary-foreground">
+            <Logo className="size-6" />
           </div>
           <div className="flex flex-col leading-tight">
             <span className="text-sm font-semibold">Sealed</span>

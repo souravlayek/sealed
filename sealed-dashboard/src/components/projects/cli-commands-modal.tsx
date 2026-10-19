@@ -55,7 +55,7 @@ export function CliCommandsModal({ open, onOpenChange, projectSlug, environment 
             Not installed yet? See install steps in the docs
           </Link>
         </DialogHeader>
-
+        <div className="flex flex-col max-w-full overflow-hidden">
         <CommandBlock
           label="Load into this shell"
           hint="Sets the variables in your current terminal until you close it."
@@ -65,7 +65,8 @@ export function CliCommandsModal({ open, onOpenChange, projectSlug, environment 
           label="Run a single command"
           hint="Injects the secrets into one process without printing them. Replace npm start with your command."
           command={run}
-        />
+          />
+        </div>
       </DialogContent>
     </Dialog>
   )
@@ -87,7 +88,7 @@ function CommandBlock({
         <p className="text-xs text-muted-foreground">{hint}</p>
       </div>
       <div className="flex items-start gap-2">
-        <pre className="flex-1 overflow-x-auto rounded-md bg-muted p-3 font-mono text-sm">
+        <pre className="flex-1 overflow-x-auto rounded-md bg-muted p-3 font-mono text-sm scrollbar-thin scrollbar-thumb-primary scrollbar-track-card">
           <code>{command}</code>
         </pre>
         <Button
