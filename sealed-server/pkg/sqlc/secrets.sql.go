@@ -280,19 +280,24 @@ SELECT s.id, s.project_id, s.environment, s.key_name, s.ciphertext, s.nonce, s.k
 FROM secrets s
 JOIN project p
   ON p.id = s.project_id
-WHERE p.slug = $1
-  AND p.deleted_at IS NULL
-  AND s.environment = $2
+ AND p.deleted_at IS NULL
+JOIN project_members pm
+  ON pm.project_id = p.id
+ AND pm.user_id = $1
+ AND pm.deleted_at IS NULL
+WHERE p.slug = $2
+  AND s.environment = $3
 ORDER BY s.key_name
 `
 
 type ListSecretsByProjectSlugAndEnvironmentParams struct {
+	UserID      int64  `json:"user_id"`
 	Slug        string `json:"slug"`
 	Environment string `json:"environment"`
 }
 
 func (q *Queries) ListSecretsByProjectSlugAndEnvironment(ctx context.Context, arg ListSecretsByProjectSlugAndEnvironmentParams) ([]Secret, error) {
-	rows, err := q.db.Query(ctx, listSecretsByProjectSlugAndEnvironment, arg.Slug, arg.Environment)
+	rows, err := q.db.Query(ctx, listSecretsByProjectSlugAndEnvironment, arg.UserID, arg.Slug, arg.Environment)
 	if err != nil {
 		return nil, err
 	}

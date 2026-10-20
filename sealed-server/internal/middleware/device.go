@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/sha256"
 	"crypto/x509"
@@ -86,9 +87,18 @@ func ValidateDeviceRequest(next http.Handler) http.Handler {
 			utils.SendErrorMessage(w, http.StatusBadRequest, "Invalid request")
 			return
 		}
-		// Nonce should not be seen (TODO)
+		if exists := setNonceIfNotExist(nonce); exists {
+			utils.SendErrorMessage(w, http.StatusBadRequest, "Invalid request")
+			return
+		}
+		// Add userid too
+		ctx := context.WithValue(
+			r.Context(),
+			"user_id",
+			device.UserID,
+		)
 
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	}
 	return http.HandlerFunc(fn)
 }
@@ -112,4 +122,15 @@ func parsePublicKey(publicKey string) (ed25519.PublicKey, error) {
 	}
 
 	return edKey, nil
+}
+
+func setNonceIfNotExist(nonce string) bool {
+	key_prefix := "api:nonce:"
+	key := key_prefix + nonce
+	_, isExisting := database.Cache.Get(key)
+	if isExisting {
+		return true
+	}
+	database.Cache.Set(key, nonce, 10*time.Minute)
+	return false
 }

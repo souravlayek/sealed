@@ -64,8 +64,12 @@ SELECT s.*
 FROM secrets s
 JOIN project p
   ON p.id = s.project_id
+ AND p.deleted_at IS NULL
+JOIN project_members pm
+  ON pm.project_id = p.id
+ AND pm.user_id = sqlc.arg(user_id)
+ AND pm.deleted_at IS NULL
 WHERE p.slug = sqlc.arg(slug)
-  AND p.deleted_at IS NULL
   AND s.environment = sqlc.arg(environment)
 ORDER BY s.key_name;
 

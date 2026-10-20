@@ -244,8 +244,10 @@ func GetAllProjectSecretsForEnv(w http.ResponseWriter, r *http.Request) {
 		utils.SendErrorMessage(w, http.StatusBadRequest, "Invalid project or environment")
 		return
 	}
+	userId := r.Context().Value("user_id").(int64)
 	secrets, err := database.Q.ListSecretsByProjectSlugAndEnvironment(r.Context(), sqlc.ListSecretsByProjectSlugAndEnvironmentParams{
 		Slug:        projectSlug,
+		UserID:      userId,
 		Environment: env,
 	})
 	if err != nil {
@@ -255,7 +257,7 @@ func GetAllProjectSecretsForEnv(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(secrets) == 0 {
 		utils.SendResponse(w, secrets, http.StatusOK)
-
+		return
 	}
 	projectKeys, err := database.Q.GetProjectKeyByProjectID(r.Context(), secrets[0].ProjectID)
 	if err != nil {
