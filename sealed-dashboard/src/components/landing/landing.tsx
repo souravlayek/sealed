@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router"
 import { Terminal, ShieldCheck, Ban } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Logo from "../logo"
+import { Navbar } from "../layout/navbar"
 
 const features = [
   {
@@ -25,20 +26,7 @@ const features = [
 export function Landing() {
   return (
     <div className="min-h-svh bg-background text-foreground">
-      <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-6">
-        <div className="flex items-center gap-2 font-semibold tracking-tight">
-          <Logo className="size-5" />
-          Sealed
-        </div>
-        <nav className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" render={<Link to="/login" search={{redirect: "/dashboard"}} />}>
-            Sign in
-          </Button>
-          <Button size="sm" render={<Link to="/signup" />}>
-            Get started
-          </Button>
-        </nav>
-      </header>
+<Navbar />
 
       <main className="mx-auto max-w-5xl px-6">
         <section className="flex flex-col items-center py-24 text-center sm:py-36">

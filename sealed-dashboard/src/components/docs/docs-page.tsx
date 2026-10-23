@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Switch } from "@/components/ui/switch"
+// import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import {
   Select,
@@ -42,25 +42,36 @@ const COMMANDS: Record<CommandId, { title: string; summary: string; detail: stri
   },
 }
 
-export function DocsPage() {
+type Params = {
+  isAuthenticated: boolean
+}
+export const DocsPage:React.FC<Params> = ({isAuthenticated}) => {
   const { data: projects = [], isLoading } = useQuery({
     queryKey: queryKeys.projects,
     queryFn: getAllProjects,
+    enabled: isAuthenticated
   })
 
   const [active, setActive] = useState<CommandId>("load")
   const [projectSlug, setProjectSlug] = useState<string>("")
   const [environment, setEnvironment] = useState<string>("")
-  const [keysText, setKeysText] = useState("")
-  const [allowMissing, setAllowMissing] = useState(false)
+  const [keysText,
+    // setKeysText
+  ] = useState("")
+
+  const [allowMissing,
+    // setAllowMissing
+  ] = useState(false)
   const [shell, setShell] = useState<"bash" | "zsh" | "fish">("zsh")
   const [runCommand, setRunCommand] = useState("npm start")
   const [copied, setCopied] = useState(false)
 
   // Default to the first project once the list loads
   useEffect(() => {
+    if (!isAuthenticated) return
     if (!projectSlug && projects.length > 0) setProjectSlug(projects[0].slug)
-  }, [projects, projectSlug])
+  }, [isAuthenticated, projects, projectSlug])
+
 
   const selectedProject = useMemo(
     () => projects.find((p) => p.slug === projectSlug),
@@ -68,10 +79,12 @@ export function DocsPage() {
   )
 
   // Reset the environment whenever the project changes
+
   useEffect(() => {
+    if (!isAuthenticated) return
     const envs = selectedProject?.environments ?? []
     if (!envs.includes(environment)) setEnvironment(envs[0] ?? "")
-  }, [selectedProject, environment])
+  }, [isAuthenticated, selectedProject, environment])
 
   const keys = keysText.split(/[\s,]+/).filter(Boolean)
   const command = buildCommand(active, {
@@ -98,53 +111,80 @@ export function DocsPage() {
         </p>
       </div>
 <InstallSection />
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Target</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Project</Label>
-            <Select
-              value={projectSlug}
-              onValueChange={(v) => setProjectSlug(v ?? "")}
-              disabled={isLoading || projects.length === 0}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={isLoading ? "Loading…" : "No projects"} />
-              </SelectTrigger>
-              <SelectContent>
-                {projects.map((p) => (
-                  <SelectItem key={p.id} value={p.slug}>
-                    {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+<Card>
+  <CardHeader>
+    <CardTitle className="text-base">Target</CardTitle>
+  </CardHeader>
+  <CardContent className="grid gap-4 sm:grid-cols-2">
+    {!isAuthenticated ? (
+      <>
+        <div className="space-y-2">
+          <Label htmlFor="project-input">Project</Label>
+          <Input
+            id="project-input"
+            className="font-mono"
+            placeholder="my-project"
+            value={projectSlug}
+            onChange={(e) => setProjectSlug(e.target.value.trim())}
+          />
+        </div>
 
-          <div className="space-y-2">
-            <Label>Environment</Label>
-            <Select
-              value={environment}
-              onValueChange={(v) => setEnvironment(v ?? "")}
-              disabled={!selectedProject || selectedProject.environments.length === 0}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="No environments" />
-              </SelectTrigger>
-              <SelectContent>
-                {(selectedProject?.environments ?? []).map((env) => (
-                  <SelectItem key={env} value={env}>
-                    {env}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+        <div className="space-y-2">
+          <Label htmlFor="environment-input">Environment</Label>
+          <Input
+            id="environment-input"
+            className="font-mono"
+            placeholder="production"
+            value={environment}
+            onChange={(e) => setEnvironment(e.target.value.trim())}
+          />
+        </div>
+      </>
+    ) : (
+      <>
+        <div className="space-y-2">
+          <Label>Project</Label>
+          <Select
+            value={projectSlug}
+            onValueChange={(v) => setProjectSlug(v ?? "")}
+            disabled={isLoading || projects.length === 0}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder={isLoading ? "Loading…" : "No projects"} />
+            </SelectTrigger>
+            <SelectContent>
+              {projects.map((p) => (
+                <SelectItem key={p.id} value={p.slug}>
+                  {p.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
+        <div className="space-y-2">
+          <Label>Environment</Label>
+          <Select
+            value={environment}
+            onValueChange={(v) => setEnvironment(v ?? "")}
+            disabled={!selectedProject || selectedProject.environments.length === 0}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="No environments" />
+            </SelectTrigger>
+            <SelectContent>
+              {(selectedProject?.environments ?? []).map((env) => (
+                <SelectItem key={env} value={env}>
+                  {env}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </>
+    )}
+  </CardContent>
+</Card>
       <Tabs value={active} onValueChange={(v) => setActive(v as CommandId)}>
         <TabsList>
           <TabsTrigger value="login">login</TabsTrigger>
@@ -170,7 +210,7 @@ export function DocsPage() {
                   <CardTitle className="text-base">Options</CardTitle>
                 </CardHeader>
                 <CardContent className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2 sm:col-span-2">
+                  {/*<div className="space-y-2 sm:col-span-2">
                     <Label htmlFor="keys">Only these keys (optional)</Label>
                     <Input
                       id="keys"
@@ -187,7 +227,7 @@ export function DocsPage() {
                       checked={allowMissing}
                       onCheckedChange={setAllowMissing}
                     />
-                  </div>
+                  </div>*/}
                   <div className="space-y-2 sm:col-span-2">
                     <Label>Shell</Label>
                     <div className="flex gap-2">

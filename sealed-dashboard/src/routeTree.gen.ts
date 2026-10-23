@@ -11,11 +11,11 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as DocsRouteImport } from './routes/docs'
 import { Route as authLoginRouteImport } from './routes/(auth)/login'
 import { Route as authSignupRouteImport } from './routes/(auth)/signup'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDeviceRouteImport } from './routes/_authenticated/device'
-import { Route as AuthenticatedDocsRouteImport } from './routes/_authenticated/docs'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedProjectsProjectSlugRouteImport } from './routes/_authenticated/projects/$projectSlug'
 
@@ -26,6 +26,11 @@ const IndexRoute = IndexRouteImport.update({
 } as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsRoute = DocsRouteImport.update({
+  id: '/docs',
+  path: '/docs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const authLoginRoute = authLoginRouteImport.update({
@@ -48,11 +53,6 @@ const AuthenticatedDeviceRoute = AuthenticatedDeviceRouteImport.update({
   path: '/device',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedDocsRoute = AuthenticatedDocsRouteImport.update({
-  id: '/docs',
-  path: '/docs',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -67,21 +67,21 @@ const AuthenticatedProjectsProjectSlugRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/docs': typeof DocsRoute
   '/login': typeof authLoginRoute
   '/signup': typeof authSignupRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/device': typeof AuthenticatedDeviceRoute
-  '/docs': typeof AuthenticatedDocsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/projects/$projectSlug': typeof AuthenticatedProjectsProjectSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/docs': typeof DocsRoute
   '/login': typeof authLoginRoute
   '/signup': typeof authSignupRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/device': typeof AuthenticatedDeviceRoute
-  '/docs': typeof AuthenticatedDocsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/projects/$projectSlug': typeof AuthenticatedProjectsProjectSlugRoute
 }
@@ -89,11 +89,11 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/docs': typeof DocsRoute
   '/(auth)/login': typeof authLoginRoute
   '/(auth)/signup': typeof authSignupRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/device': typeof AuthenticatedDeviceRoute
-  '/_authenticated/docs': typeof AuthenticatedDocsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/projects/$projectSlug': typeof AuthenticatedProjectsProjectSlugRoute
 }
@@ -101,32 +101,32 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/docs'
     | '/login'
     | '/signup'
     | '/dashboard'
     | '/device'
-    | '/docs'
     | '/settings'
     | '/projects/$projectSlug'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/docs'
     | '/login'
     | '/signup'
     | '/dashboard'
     | '/device'
-    | '/docs'
     | '/settings'
     | '/projects/$projectSlug'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/docs'
     | '/(auth)/login'
     | '/(auth)/signup'
     | '/_authenticated/dashboard'
     | '/_authenticated/device'
-    | '/_authenticated/docs'
     | '/_authenticated/settings'
     | '/_authenticated/projects/$projectSlug'
   fileRoutesById: FileRoutesById
@@ -134,6 +134,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  DocsRoute: typeof DocsRoute
   authLoginRoute: typeof authLoginRoute
   authSignupRoute: typeof authSignupRoute
 }
@@ -152,6 +153,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs': {
+      id: '/docs'
+      path: '/docs'
+      fullPath: '/docs'
+      preLoaderRoute: typeof DocsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/(auth)/login': {
@@ -182,13 +190,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDeviceRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/docs': {
-      id: '/_authenticated/docs'
-      path: '/docs'
-      fullPath: '/docs'
-      preLoaderRoute: typeof AuthenticatedDocsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/settings': {
       id: '/_authenticated/settings'
       path: '/settings'
@@ -209,7 +210,6 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDeviceRoute: typeof AuthenticatedDeviceRoute
-  AuthenticatedDocsRoute: typeof AuthenticatedDocsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedProjectsProjectSlugRoute: typeof AuthenticatedProjectsProjectSlugRoute
 }
@@ -217,7 +217,6 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDeviceRoute: AuthenticatedDeviceRoute,
-  AuthenticatedDocsRoute: AuthenticatedDocsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedProjectsProjectSlugRoute: AuthenticatedProjectsProjectSlugRoute,
 }
@@ -228,6 +227,7 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  DocsRoute: DocsRoute,
   authLoginRoute: authLoginRoute,
   authSignupRoute: authSignupRoute,
 }

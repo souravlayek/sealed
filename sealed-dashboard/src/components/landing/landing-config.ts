@@ -7,7 +7,7 @@ export const DEPLOY_DOCS_URL = `${REPO_URL}/tree/main/deploy`
 // Homebrew first, Go toolchain as fallback
 export const INSTALL_COMMAND = "brew install --cask souravlayek/tap/sealed"
 export const INSTALL_GO_COMMAND =
-  "go install github.com/souravlayek/sealed-cli@latest"
+  "go install github.com/souravlayek/sealed-cli/cmd/sealed@latest"
 
 export const FIRST_RUN = [
   "sealed login",
