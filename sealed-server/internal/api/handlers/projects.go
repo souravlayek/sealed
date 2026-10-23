@@ -602,6 +602,75 @@ func AddEnvironmentToProject(w http.ResponseWriter, r *http.Request) {
 	utils.SendResponse(w, "Successfully added environment", http.StatusOK)
 }
 
+// @Summary		Delete environment from project
+// @Description	Deltete environment from project.
+// @Tags			projects
+// @Accept			json
+// @Produce		json
+// @Security		BearerAuth
+// @Param			id		path		int								true	"Project ID"
+// @Param			request	body		AddEnvironmentToProjectPayload	true	"Environemnt"
+// @Success		200		{object}	utils.EnvelopResponse[string]
+// @Failure		400		{object}	utils.ErrResponse
+// @Failure		404		{object}	utils.ErrResponse
+// @Failure		401		{object}	utils.ErrResponse
+// @Router			/v1/projects/{id}/environment/{environment} [delete]
+func DeleteEnvironment(w http.ResponseWriter, r *http.Request) {
+	claims, ok := r.Context().Value(
+		middleware.UserClaimsKey,
+	).(*auth.Payload)
+
+	if !ok {
+		utils.SendErrorMessage(
+			w,
+			http.StatusUnauthorized,
+			"user authentication required",
+		)
+		return
+	}
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		utils.SendErrorMessage(
+			w,
+			http.StatusBadRequest,
+			"invalid project id",
+		)
+		return
+	}
+	env := r.PathValue("environment")
+	if strings.Trim(env, " ") == "" {
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Invalid environment")
+		return
+	}
+	project, err := database.Q.GetProjectByID(r.Context(), sqlc.GetProjectByIDParams{
+		UserID: claims.Id,
+		ID:     int64(id),
+	})
+	if err != nil {
+		utils.SendErrorMessage(w, http.StatusNotFound, "Unable to found project")
+		return
+	}
+	if !slices.Contains(project.Environments, env) {
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Environment doesn't exist")
+		return
+	}
+	_, err = database.Q.UpdateProjectEnvironments(r.Context(), sqlc.UpdateProjectEnvironmentsParams{
+		ID: int64(id),
+		Environments: slices.DeleteFunc(project.Environments, func(environment string) bool {
+			return environment == env
+		}),
+	})
+	if err != nil {
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Unable to delete environment")
+		return
+	}
+	database.Q.DeleteSecretByEnvironment(r.Context(), sqlc.DeleteSecretByEnvironmentParams{
+		ProjectID:   project.ID,
+		Environment: env,
+	})
+	utils.SendResponse(w, "Successfully deleted environment", http.StatusOK)
+}
+
 type InviteProjectMemberPayload struct {
 	Email string `json:"email"`
 }

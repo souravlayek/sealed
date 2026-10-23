@@ -21,6 +21,7 @@ type Querier interface {
 	DeleteDeviceEntryInTransitByDeviceCode(ctx context.Context, deviceCode string) (DeviceOnHold, error)
 	DeleteProjectInviteByID(ctx context.Context, id int64) (ProjectInvite, error)
 	DeleteSecret(ctx context.Context, id int64) (Secret, error)
+	DeleteSecretByEnvironment(ctx context.Context, arg DeleteSecretByEnvironmentParams) (Secret, error)
 	DeleteSecretByKey(ctx context.Context, arg DeleteSecretByKeyParams) (Secret, error)
 	GetAuditEventByID(ctx context.Context, id int64) (AuditEvent, error)
 	GetDeviceByDeviceCode(ctx context.Context, deviceCode *string) (Device, error)

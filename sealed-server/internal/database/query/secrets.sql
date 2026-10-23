@@ -104,6 +104,11 @@ DELETE FROM "secrets"
 WHERE id = $1
 RETURNING *;
 
+-- name: DeleteSecretByEnvironment :one
+DELETE FROM "secrets"
+WHERE project_id = $1 and environment = $2
+RETURNING *;
+
 
 -- name: DeleteSecretByKey :one
 DELETE FROM "secrets"

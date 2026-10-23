@@ -18,6 +18,7 @@ func CreateProjectsRoutes() *http.ServeMux {
 	router.HandleFunc("PUT /{id}/secret/{secretId}", handlers.UpdateProjectSecret)
 	router.HandleFunc("DELETE /{id}/secret/{environment}/{secretKey}", handlers.DeleteProjectSecret)
 	router.HandleFunc("PUT /{id}/environment", handlers.AddEnvironmentToProject)
+	router.HandleFunc("DELETE /{id}/environment/{environment}", handlers.DeleteEnvironment)
 
 	return &router.ServeMux
 }

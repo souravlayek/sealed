@@ -13,5 +13,6 @@ func CreateDeviceRoutes() *http.ServeMux {
 	router.HandleFunc("POST /code", handlers.CreateDeviceCode)
 	router.HandleFunc("POST /token", handlers.ValidateToken)
 	router.HandlerFuncWithMiddleware("POST /validate", []middleware.Middleware{middleware.RequireAuth}, handlers.ValidateAuthentication)
+	router.HandlerFuncWithMiddleware("POST /{id}/revoke", []middleware.Middleware{middleware.RequireAuth}, handlers.RevokeDevice)
 	return &router.ServeMux
 }

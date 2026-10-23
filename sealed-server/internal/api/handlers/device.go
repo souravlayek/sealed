@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -140,6 +141,17 @@ func ValidateToken(w http.ResponseWriter, r *http.Request) {
 			}, http.StatusOK)
 			return
 		}
+		if time.Since(dbResult.ExpiresAt).Seconds() > 0 {
+			logger.Logger.Error("Exceeded time")
+			_, err = database.Q.DeleteDeviceEntryInTransitByDeviceCode(r.Context(), dbResult.DeviceCode)
+			logger.Logger.Errorf("Deleteing when expired got %w", err)
+
+			utils.SendResponse(w, PollingResponse{
+				Status: "expired_token",
+				Data:   PollingSuccessData{},
+			}, http.StatusOK)
+			return
+		}
 		database.Cache.Set(dbResult.DeviceCode, time.Now(), 10*time.Minute)
 		utils.SendResponse(w, PollingResponse{
 			Status: "authorization_pending",
@@ -269,14 +281,19 @@ type RevokeDevicePayload struct {
 // @Failure		400		{object}	utils.ErrResponse
 // @Failure		401		{object}	utils.ErrResponse
 // @Failure		404		{object}	utils.ErrResponse
-// @Router			/v1/device/revoke [post]
+// @Router			/v1/device/{id}/revoke [post]
 func RevokeDevice(w http.ResponseWriter, r *http.Request) {
-	var payload RevokeDevicePayload
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		utils.SendErrorMessage(w, http.StatusBadRequest, "Invalid request format")
+	device_id := r.PathValue("id")
+	if device_id == "" {
+		utils.SendErrorMessage(w, http.StatusBadRequest, "invalid device id")
 		return
 	}
-
+	deviceID, err := strconv.Atoi(device_id)
+	if err != nil {
+		logger.Logger.Errorln(err)
+		utils.SendErrorMessage(w, http.StatusBadRequest, "invalid device id")
+		return
+	}
 	claims, ok := r.Context().Value(
 		middleware.UserClaimsKey,
 	).(*auth.Payload)
@@ -291,7 +308,7 @@ func RevokeDevice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// First verify the device belongs to the user
-	device, err := database.Q.GetDeviceById(r.Context(), payload.DeviceID)
+	device, err := database.Q.GetDeviceById(r.Context(), int64(deviceID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			utils.SendErrorMessage(w, http.StatusNotFound, "Device not found")
@@ -309,7 +326,7 @@ func RevokeDevice(w http.ResponseWriter, r *http.Request) {
 
 	now := time.Now()
 	revokedDevice, err := database.Q.RevokeDevice(r.Context(), sqlc.RevokeDeviceParams{
-		ID:        payload.DeviceID,
+		ID:        device.ID,
 		RevokedAt: &now,
 	})
 	if err != nil {

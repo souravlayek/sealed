@@ -103,6 +103,35 @@ func (q *Queries) DeleteSecret(ctx context.Context, id int64) (Secret, error) {
 	return i, err
 }
 
+const deleteSecretByEnvironment = `-- name: DeleteSecretByEnvironment :one
+DELETE FROM "secrets"
+WHERE project_id = $1 and environment = $2
+RETURNING id, project_id, environment, key_name, ciphertext, nonce, kek_version, value_changed_at, rotation_days, created_at
+`
+
+type DeleteSecretByEnvironmentParams struct {
+	ProjectID   int64  `json:"project_id"`
+	Environment string `json:"environment"`
+}
+
+func (q *Queries) DeleteSecretByEnvironment(ctx context.Context, arg DeleteSecretByEnvironmentParams) (Secret, error) {
+	row := q.db.QueryRow(ctx, deleteSecretByEnvironment, arg.ProjectID, arg.Environment)
+	var i Secret
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Environment,
+		&i.KeyName,
+		&i.Ciphertext,
+		&i.Nonce,
+		&i.KekVersion,
+		&i.ValueChangedAt,
+		&i.RotationDays,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const deleteSecretByKey = `-- name: DeleteSecretByKey :one
 DELETE FROM "secrets"
 WHERE project_id = $1

@@ -407,37 +407,7 @@ paths:
       summary: Get all devices
       tags:
       - device
-  /v1/device/code:
-    post:
-      consumes:
-      - application/json
-      description: Create device code for login.
-      parameters:
-      - description: Device key
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/handlers.DeviceCodeAPIPayload'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/utils.EnvelopResponse-handlers_DeviceCodeAPIResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/utils.ErrResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/utils.ErrResponse'
-      summary: Create device code
-      tags:
-      - device
-  /v1/device/revoke:
+  /v1/device/{id}/revoke:
     post:
       consumes:
       - application/json
@@ -469,6 +439,36 @@ paths:
           schema:
             $ref: '#/definitions/utils.ErrResponse'
       summary: Revoke a device
+      tags:
+      - device
+  /v1/device/code:
+    post:
+      consumes:
+      - application/json
+      description: Create device code for login.
+      parameters:
+      - description: Device key
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.DeviceCodeAPIPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.EnvelopResponse-handlers_DeviceCodeAPIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+      summary: Create device code
       tags:
       - device
   /v1/device/token:
@@ -665,6 +665,47 @@ paths:
       security:
       - BearerAuth: []
       summary: Add environment to project
+      tags:
+      - projects
+  /v1/projects/{id}/environment/{environment}:
+    delete:
+      consumes:
+      - application/json
+      description: Deltete environment from project.
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Environemnt
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.AddEnvironmentToProjectPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.EnvelopResponse-string'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete environment from project
       tags:
       - projects
   /v1/projects/{id}/invite-member:
