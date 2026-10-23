@@ -2,7 +2,6 @@
 import { Link } from "@tanstack/react-router"
 import { Terminal, ShieldCheck, Ban } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import Logo from "../logo"
 import { Navbar } from "../layout/navbar"
 
 const features = [
