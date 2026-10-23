@@ -13,6 +13,7 @@ func CreateProjectsRoutes() *http.ServeMux {
 	router.HandleFunc("GET /{$}", handlers.GetAllProjects)
 	router.HandleFunc("GET /{slug}", handlers.GetProjectDetails)
 	router.HandleFunc("DELETE /{id}", handlers.DeleteProject)
+	router.HandleFunc("PUT /{id}", handlers.UpdateProjectName)
 	router.HandleFunc("POST /{id}/invite-member", handlers.InviteProjectMember)
 	router.HandleFunc("POST /{id}/secret", handlers.CreateProjectSecret)
 	router.HandleFunc("PUT /{id}/secret/{secretId}", handlers.UpdateProjectSecret)

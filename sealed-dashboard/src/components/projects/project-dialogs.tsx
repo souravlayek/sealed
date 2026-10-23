@@ -25,6 +25,7 @@ import {
   addEnvironment,
   createSecret,
   deleteSecret,
+  updateProject,
   type SecretMeta,
 } from "@/service/project_service"
 import { useNavigate } from "@tanstack/react-router"
@@ -300,5 +301,63 @@ export function DeleteProjectDialog({
       onConfirm={() => remove.mutate()}
       onClose={onClose}
     />
+  )
+}
+export function EditProjectDialog({
+  projectId,
+  slug,
+  currentName,
+  onClose,
+}: {
+  projectId: number
+  slug: string
+  currentName: string
+  onClose: () => void
+}) {
+  const queryClient = useQueryClient()
+  const [name, setName] = useState(currentName)
+
+  const mutation = useMutation({
+    mutationFn: () => updateProject(projectId, { name: name.trim() }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["project", slug] })
+      queryClient.invalidateQueries({ queryKey: ["projects"] })
+      onClose()
+    },
+  })
+
+  const trimmed = name.trim()
+  const canSave = trimmed.length > 0 && trimmed !== currentName && !mutation.isPending
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit project name</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-2">
+          <Label htmlFor="project-name">Name</Label>
+          <Input
+            id="project-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoFocus
+          />
+          {mutation.isError && (
+            <p className="text-sm text-destructive">Could not save the name. Try again.</p>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={() => mutation.mutate()} disabled={!canSave}>
+            {mutation.isPending ? "Saving…" : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

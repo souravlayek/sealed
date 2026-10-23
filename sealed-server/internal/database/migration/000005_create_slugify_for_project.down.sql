@@ -1,5 +1,6 @@
--- Reverse order: trigger, then its function, then the column, then the helper
-DROP TRIGGER IF EXISTS project_slug_before_write ON "project";
+-- 0005 down: remove project slugs
+
+DROP TRIGGER IF EXISTS project_slug_before_insert ON "project";
 DROP FUNCTION IF EXISTS set_project_slug();
 
 ALTER TABLE "project" DROP CONSTRAINT IF EXISTS "project_slug_unique";

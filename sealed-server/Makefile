@@ -38,7 +38,7 @@ migrateup:
 
 # Run database migrations down
 migratedown:
-	migrate -path ./internal/database/migration -database "$(db)" -verbose down
+	migrate -path ./internal/database/migration -database "$(db)" -verbose down 1
 
 # Generate Swagger documentation
 # -d points at directories that contain .go files with swagger annotations, so

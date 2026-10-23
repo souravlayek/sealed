@@ -349,6 +349,91 @@ func DeleteProject(w http.ResponseWriter, r *http.Request) {
 	utils.SendResponse(w, "Project deleted successfully", http.StatusOK)
 }
 
+type UpdateProjectPayload struct {
+	Name string `json:"name"`
+}
+
+// @Summary		Update project name
+// @Description	Update project name.
+// @Tags			projects
+// @Accept			json
+// @Produce		json
+// @Security		BearerAuth
+// @Param			id		path		int								true	"Project ID"
+// @Param			request	body		handlers.UpdateProjectPayload	true	"Project name"
+// @Success		200		{object}	utils.EnvelopResponse[string]
+// @Failure		400		{object}	utils.ErrResponse
+// @Failure		404		{object}	utils.ErrResponse
+// @Failure		401		{object}	utils.ErrResponse
+// @Router			/v1/projects/{id} [put]
+func UpdateProjectName(w http.ResponseWriter, r *http.Request) {
+	claims, ok := r.Context().Value(
+		middleware.UserClaimsKey,
+	).(*auth.Payload)
+	var projectInput UpdateProjectPayload
+	if err := json.NewDecoder(r.Body).Decode(&projectInput); err != nil {
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Invalid request format")
+		return
+	}
+	if len(strings.Trim(projectInput.Name, " ")) < 3 {
+		utils.SendErrorMessage(w, http.StatusBadRequest, "Invalid project name")
+		return
+	}
+	if !ok {
+		utils.SendErrorMessage(
+			w,
+			http.StatusUnauthorized,
+			"user authentication required",
+		)
+		return
+	}
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		utils.SendErrorMessage(
+			w,
+			http.StatusBadRequest,
+			"invalid project id",
+		)
+		return
+	}
+	project, err := database.Q.GetProjectByID(r.Context(), sqlc.GetProjectByIDParams{
+		UserID: claims.Id,
+		ID:     int64(id),
+	})
+	if err != nil {
+		logger.Logger.Error(err)
+		utils.SendErrorMessage(
+			w,
+			http.StatusNotFound,
+			"Failed to get project",
+		)
+		return
+	}
+	if project.MyRole != ROLE_PROJECT_ADMIN {
+		utils.SendErrorMessage(
+			w,
+			http.StatusBadRequest,
+			"You're not allowed to delete the project",
+		)
+		return
+	}
+
+	_, err = database.Q.UpdateProject(r.Context(), sqlc.UpdateProjectParams{
+		ID:   project.ID,
+		Name: projectInput.Name,
+	})
+	if err != nil {
+		logger.Logger.Error(err)
+		utils.SendErrorMessage(
+			w,
+			http.StatusNotFound,
+			"Failed to update project",
+		)
+		return
+	}
+	utils.SendResponse(w, "Project updated successfully", http.StatusOK)
+}
+
 type CreateProjectSecretParams struct {
 	Environment  string `json:"environment"`
 	KeyName      string `json:"key_name"`

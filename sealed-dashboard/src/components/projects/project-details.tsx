@@ -13,6 +13,7 @@ import {
   DeleteEnvironmentDialog,
   DeleteProjectDialog,
   DeleteSecretDialog,
+  EditProjectDialog,
   SecretDialog,
 } from "./project-dialogs"
 import { CliCommandsModal } from "./cli-commands-modal"
@@ -25,6 +26,7 @@ type DialogState =
   | { type: "add-env" }
   | { type: "delete-env"; environment: string }
   | { type: "delete-project" }
+  | { type: "edit-project" }
   | { type: "cli" }
   | null
 
@@ -70,12 +72,25 @@ export function ProjectDetails({ slug }: { slug: string }) {
       <TabsContent value="secrets">
         <div className="space-y-6">
 
-      <div>
-        <h1 className="text-2xl font-semibold">{project.name}</h1>
-        <p className="text-sm text-muted-foreground">
-          {project.slug} · your role: {project.my_role}
-        </p>
-      </div>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <h1 className="text-2xl font-semibold">{project.name}</h1>
+              <p className="text-sm text-muted-foreground">
+                {project.slug} · your role: {project.my_role}
+              </p>
+            </div>
+            {project.my_role === "PROJECT_ADMIN" && (
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Edit project name"
+                title="Edit project name"
+                onClick={() => setDialog({ type: "edit-project" })}
+              >
+                <Pencil />
+              </Button>
+            )}
+          </div>
 
       {project.environments.length === 0 ? (
         <Card>
@@ -250,6 +265,14 @@ export function ProjectDetails({ slug }: { slug: string }) {
       )}
       {dialog?.type === "delete-project" && (
         <DeleteProjectDialog projectId={project.id} name={project.name} onClose={close} />
+      )}
+      {dialog?.type === "edit-project" && (
+        <EditProjectDialog
+          projectId={project.id}
+          slug={slug}
+          currentName={project.name}
+          onClose={close}
+        />
       )}
       {project.my_role === "PROJECT_ADMIN" && (
         <Card className="border-destructive/40">

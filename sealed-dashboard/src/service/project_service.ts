@@ -86,3 +86,8 @@ export const inviteMember = (projectId: number, body: InviteMemberInput) =>
   api
     .post<ServerResponse<string>>(`/projects/${projectId}/invite-member`, body)
     .then((res) => res.data.data)
+
+export async function updateProject(id: number, body: { name: string }) {
+  const res = await api.put(`/projects/${id}`, body)
+  return res.data
+}

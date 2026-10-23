@@ -36,7 +36,7 @@ ALTER TABLE "project" ALTER COLUMN "slug" SET NOT NULL;
 ALTER TABLE "project"
   ADD CONSTRAINT "project_slug_unique" UNIQUE ("slug");
 
--- 5. Trigger function: runs on insert and on name changes
+-- 5. Generate a slug on insert only; keep one if the insert provides it
 CREATE OR REPLACE FUNCTION set_project_slug()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -46,14 +46,14 @@ DECLARE
   candidate text;
   n         int := 1;
 BEGIN
+  IF NEW."slug" IS NOT NULL AND NEW."slug" <> '' THEN
+    RETURN NEW;
+  END IF;
+
   base := COALESCE(NULLIF(slugify(NEW."name"), ''), 'project');
   candidate := base;
 
-  WHILE EXISTS (
-    SELECT 1 FROM "project"
-    WHERE "slug" = candidate
-      AND "id" <> COALESCE(NEW."id", -1)
-  ) LOOP
+  WHILE EXISTS (SELECT 1 FROM "project" WHERE "slug" = candidate) LOOP
     n := n + 1;
     candidate := base || '-' || n;
   END LOOP;
@@ -63,7 +63,7 @@ BEGIN
 END;
 $$;
 
--- 6. Fire on insert, and on updates that touch name
-CREATE TRIGGER project_slug_before_write
-BEFORE INSERT OR UPDATE OF "name" ON "project"
+-- 6. Fire on insert only, so renames never change the slug
+CREATE TRIGGER project_slug_before_insert
+BEFORE INSERT ON "project"
 FOR EACH ROW EXECUTE FUNCTION set_project_slug();

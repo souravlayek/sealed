@@ -108,8 +108,7 @@ WHERE pm.user_id = $1          -- the user's id
 -- name: UpdateProject :one
 UPDATE "project"
 SET
-    name = $2,
-    environments = $3
+    name = $2
 WHERE id = $1
   AND deleted_at IS NULL
 RETURNING *;
