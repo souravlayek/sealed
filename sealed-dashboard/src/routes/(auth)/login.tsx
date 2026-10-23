@@ -36,7 +36,12 @@ function LoginPage() {
     setError(undefined)
     try {
       await auth.login(email, password)
-      navigate({ to: target, search: {redirect: ""} })
+      if (target === "/login") {
+      navigate({ to: target, search: {redirect: "/dashboard"} })
+      } else {
+        //@ts-expect-error This is intentional
+      navigate({ to: target })
+      }
     } catch (err) {
       setError(
         (isAxiosError(err) && err.response?.data?.message) ||
